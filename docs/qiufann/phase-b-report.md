@@ -30,19 +30,21 @@
 ## 实际验证
 
 - 三组类型检查：`npm run typecheck`、`npm run typecheck:extra`、`npm run typecheck:worker` 全部 exit 0。
-- `npm test -- --maxWorkers=2`：**489 个测试文件、3099 项测试全部通过**。首次完整运行仅失败于旧注册数量断言；补上新增适配器后完整重跑通过，没有跳过旧测试。
+- `npm test -- --maxWorkers=2`：**489 个测试文件、3099 项测试全部通过**。首次完整运行仅失败于旧注册数量断言；补上新增适配器后完整重跑通过，没有跳过旧测试。随后新增“空 API Key 从完整聊天入口成功走订阅桥”的集成用例，所在文件 6 项测试再次通过；线上会对最终源码全量验证。
 - `npm run build`：生产构建通过。保留既有大 chunk 警告。
 - `npx --no-install cap sync android`：通过。生成的 config.xml 纯空白变化已恢复，不提交。
-- `./gradlew testReleaseUnitTest assembleRelease`：通过，471 个任务，1 分 1 秒；**18 项原生 JVM 测试，0 failures / 0 errors**。含真实本机 TCP 回调监听、错误 state/Host 不消耗正确尝试、成功/取消后端口关闭、真实 JWT 验签、身份字段、并发刷新只执行一次、权限撤销、网络失败不覆盖旧记录、账号摘要不含凭证及重置使旧尝试失效。
+- `./gradlew testReleaseUnitTest assembleRelease`：最终源码再次通过，471 个任务（11 executed / 460 up-to-date），44 秒；**18 项原生 JVM 测试，0 failures / 0 errors**。含真实本机 TCP 回调监听、错误 state/Host 不消耗正确尝试、成功/取消后端口关闭、真实 JWT 验签、身份字段、并发刷新只执行一次、权限撤销、网络失败不覆盖旧记录、账号摘要不含凭证及重置使旧尝试失效。
 - `actionlint .github/workflows/qiufann-android.yml` 与 `git diff --check`：通过。
 - 浏览器 App 启动及切换房间/对话无 pageerror。账号卡单独使用假的原生返回值检查：Continue → 实时模型列表 → 激活 authKind=chatgpt-plan 且 apiKey 为空 → 断开连接，全部通过，无 pageerror；390 px 视口无横向溢出。这不是真实 Android 授权，也不是本人账号登录。
-- 本地 unsigned APK：15,646,704 bytes，SHA256 `5406862a666839bc01c6effcd34130ebb779a22e68cf7524cc7f82f5de0a024f`；`apksigner verify` 按预期不通过，**不能直接安装**。线上运行与产物结果另在本报告末尾回填。
+- 本地最终 unsigned APK：15,646,704 bytes，SHA256 `2f3c716ef80e4443368d42e79835c04f52ec02e86b462d8dd2817588661dd202`；`apksigner verify` 按预期不通过，**不能直接安装**。线上运行与产物结果另在本报告末尾回填。
 
 所有自动测试使用测试替身或仅在内存生成的测试验签材料，没有向真实 OAuth/token/Responses 服务提交个人凭证，没有把测试验签材料用于 APK 签名。
 
 ## 手机验收还缺什么
 
 本轮没有改签名策略，故没有能供秋凡安装的已签名 APK，也没有宣称 stage A/B 整体完成。后续若允许生成并妥善保存稳定 APK 签名密钥，才可准备真机安装包；不需要把密码或密钥明文发到聊天。
+
+已实际检查签名保管入口：当前 GitHub 连接调用 `GET /repos/Qiufannn/polaris-local-first/actions/secrets/public-key` 返回 `403 Resource not accessible by integration`。这一步只读取仓库用于加密上传 Secrets 的公开公钥，不读取任何秘密值；连这一前置接口都无法访问，因此本轮没有尝试写入 Secrets 或生成实际签名密钥。现有连接读写代码、运行 Actions 正常，不能把此权限缺口说成 GitHub 密码失效。后续需要可安全写入本仓库 Actions Secrets 的连接/操作入口，不能用公开仓库文件、普通 artifact 或聊天明文代替秘密保管。
 
 签名产物具备后，最短本人验证顺序：打开“供应商 → ChatGPT 订阅” → Continue with ChatGPT → 在系统浏览器本人授权 → 返回 Polaris，确认权限与可用模型 → 发一条中文 → 关闭并重开 App → 继续聊天。取消授权、真实过期刷新、撤销、网络中断、Android 10/较新系统、系统杀进程以及同签名覆盖升级仍须独立验证；不要卸载已有 App 来替代升级验证。
 
@@ -60,3 +62,17 @@
 `main` 继续保留上游基线；开发仍在 `qiufann/chatgpt-plan-android`，`upstream` 禁止 push，未覆盖上游代码。主要冲突候选为 MainActivity、Android app/build.gradle、provider 适配器注册/能力/传输、runtime provider 归一化和 ApiProviderSheet。原 Responses / Anthropic / Gemini / API Key 线路回归保留，聊天数据库、附件、主题和记忆格式没有迁移。
 
 官方依据：[注册与登录](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)、[账号与刷新](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions)、[模型与推理](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference)、[预览限制](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)。Nimbus 版本来自 Maven Central 当日元数据。未复制 Aru 代码或专有素材。
+
+## 最终在线结果与产物
+
+- 已验证源码提交：`401dbb898125ce85d34f83cf94971efb6c5a28b1`。实现提交为 `51874b2`，随后补齐 AtomicFile 在只有 `.bak` 时的恢复、写后读取校验和安全记录大小上限；没有新增签名或真实账号操作。
+- [在线 CI #4](https://github.com/Qiufannn/polaris-local-first/actions/runs/43589680282)：**completed / success，两个作业均 success**。
+- 在线网页层：三组类型检查通过，489 个测试文件、**3100 项测试全部通过**，测试耗时 63.71 秒。
+- 在线 Android：JVM 原生测试通过（1 分 13 秒），release APK 构建通过（1 分 21 秒）；已下载的三份 JUnit XML 合计 **18 tests / 0 failures / 0 errors**。
+- [下载本轮 unsigned artifact](https://github.com/Qiufannn/polaris-local-first/actions/runs/43589680282/artifacts/14111509388)，名称 `polaris-android-unsigned-4-1`，含 APK、SHA256SUMS、build-info 和三份原生测试 XML。GitHub 保留至 2026-11-28；下载通常需要登录 GitHub。
+- ZIP 大小 14,286,529 bytes，SHA256 `7904d17a52f4e21a9934dfd1f13ab95ea0811a9513d1d4b30bc1163b3340d521`，与 GitHub artifact digest 一致。
+- 内含 APK 大小 15,646,704 bytes，SHA256 `2f3c716ef80e4443368d42e79835c04f52ec02e86b462d8dd2817588661dd202`，与本地最终构建一致。实际核对过 build-info 的源码 SHA、run_id、signing=unsigned、ZIP 完整性及 APK 内的 manifest/dex/Web 入口。
+- 在线 APK 的 `apksigner verify` 按预期 exit 1（未签名），**不能直接安装**。不能把 CI 通过写成真人登录、Keystore 真机验证或覆盖升级已验收。
+- 本回执回填提交仅更新文档并标记 `[skip ci]`，避免为了写回验证结果再跑一遍构建；上述验证明确对应 `401dbb8`。
+
+当前停点：订阅代码与自动验证交付，安全签名保管入口受 GitHub Secrets 403 阻挡。未开始阶段 C–G，也没有以普通聊天、公开 Git 仓库或 public-repo artifact 保存任何实际秘密。
