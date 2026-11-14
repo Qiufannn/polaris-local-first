@@ -43,9 +43,20 @@ GitHub App Device Flow 使用公开 Client ID、`offline_access`、原生设备�
 ## 验证记录
 
 - 新增 6 项 Web 测试，覆盖两个提供方的发现/执行与元数据传递、协议会话头、凭证隔离、缺失桥接/网页/旧 SSE 禁止回退和安全导出；相关 5 个测试文件共 30 项通过。
-- Android 本地完整单元测试 43 项通过；包括新提供方策略、公共注册、设备码间隔、取消、刷新失效、Git blob 校验和无须等待 EOF 的 SSE 读取。CI XML 结果另行核对。
+- Android 本地及 CI XML 完整单元测试均为 43 项通过、0 失败；包括新提供方策略、公共注册、设备码间隔、取消、刷新失效、Git blob 校验和无须等待 EOF 的 SSE 读取。
 - 合成资料的手机尺寸 UI 验证通过：公开 ID 输入、复制并打开登录不打断轮询、取消后不启用、GitHub SHA 预览、Notion 页面预览、保存与断开。没有用合成测试声称本人已授权或私人记忆已读取。
-- TypeScript 检查与生产 Web 构建已通过；签名安装包、完整 CI 结果及本人实际读取待交付后补记。
+- TypeScript 检查与生产 Web 构建已通过。CI 的主检查、额外工具/API 与 Worker 类型检查通过，完整 Web 测试为 491 个文件 / 3,111 项通过。
+
+### 第 12 版安装包证据
+
+- 实现 commit：`c805735e84fa3fedb1cf5946c98538dcc7a1e4b6`。
+- [CI #12](https://github.com/Qiufannn/polaris-local-first/actions/runs/43630009079) 的四个 job 全部成功。
+- 推荐安装的 [signed-12-1 artifact](https://github.com/Qiufannn/polaris-local-first/actions/runs/43630009079/artifacts/14127927200)，包内为 `polaris.apk`。版本 `1.0-qiufann.12`，versionCode `12`，包名 `com.alyssa.polaris`。
+- 签名 ZIP SHA-256：`0e7e014a9849d5ba3db49ce9da7eeb569c45f88304faeaeb85b36d7436bdc3d5`。
+- APK SHA-256：`2a76c879e14cef5573eadeb2d0cc753e5159788d5ab0b589ed99959068d08713`。
+- 个人证书 SHA-256：`f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，与已安装版本的固定证书一致。独立 `apksigner verify` 成功，回执中的源码、run ID、版本及 APK 校验和相符。
+- 已下载 unsigned artifact `14128006849`，核对 CI 测试 XML、源代码回执及 APK 摘要；签名 APK 的原始 ZIP 文件内容逐项相同，仅新增 v1 的三个签名条目。
+- 可以覆盖安装；本人实际升级保留数据、两处 OAuth、GitHub 私密文件及 Notion 原日记本读取仍待手机验收。没有宣称读写同步已完成。
 
 官方协议依据：
 
