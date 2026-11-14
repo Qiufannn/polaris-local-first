@@ -1,6 +1,6 @@
 # 稳定个人签名的配置与验证
 
-当前状态：已准备手机本地生成随机恢复值、GitHub Secrets 保管和 CI 内恢复签名的路径。尚未配置真实签名材料，也没有发布可安装的个人签名 APK。既有阶段 B 自动验证不等于真机授权和覆盖升级验收。
+当前状态：秋凡已确认在手机 GitHub 官方页面保存 `POLARIS_ANDROID_SIGNING_SEED`。尚待新 CI 验证能否使用该配置并产出真实个人签名 APK；没有读取、索取或接收该值。既有阶段 B 自动验证不等于真机授权和覆盖升级验收。
 
 ## 手机手动配置：一个新 Secret
 
@@ -31,7 +31,7 @@ GitHub 设置使用 **Via（mark.via）**；聊天使用 **Edge（com.microsoft.
 
 ## 仍待实际验证
 
-新恢复值安全保管、GitHub Secrets 配置、真实个人签名成功、Android 10/较新设备安装、第二个同签名版本覆盖升级和数据留存。配置完成前不得把绿色 CI 当作实际签名成功。未推进气泡、群聊、语音或主题阶段。
+GitHub 配置已由本人报告保存，仍待 CI 验证实际签名成功、Android 10/较新设备安装、第二个同签名版本覆盖升级和数据留存。实际签名步骤成功前不得把绿色 CI 当作实际签名成功。未推进气泡、群聊、语音或主题阶段。
 
 ## 新路径的本地验证
 
@@ -54,3 +54,9 @@ GitHub 设置使用 **Via（mark.via）**；聊天使用 **Edge（com.microsoft.
 - 线上包名 `com.alyssa.polaris`，versionCode `6`，versionName `1.0-qiufann.6`，说明 CI 的递增版本配置已生效。APK 大小 15,646,720 bytes，SHA256 `cbbe4270b9a8d53dc7a21fab6a3994f2eeb3c79d06ee0243711436af36d7be8c`。
 - ZIP SHA256 `23fac2e868c2db2fe158e9ad49eb049067ded8959c3d912c18a5e8a4c3ba8192`，与 GitHub digest 一致。该包仍不能直接安装。
 - 该次回填提交仅更新文档并使用 `[skip ci]`；该次已验证源码明确为 `9776ce0`。没有在手机或仓库配置实际 Secrets，也未生成真实 APK 签名密钥。
+
+## 新路径的在线验证（CI #7）
+
+- 源码 `4d8ffbb21aaa428aa66efa5c18f1e349ae1ab9ab` 的 [CI #7](https://github.com/Qiufannn/polaris-local-first/actions/runs/43604676245) 四个作业均成功，包含新增公开测试向量签名/验签作业。
+- 该 run 排队时尚未保存个人 Secret，实际恢复签名和 signed artifact 上传步骤全部 skipped。
+- 秋凡随后报告手机保存完成；本次文档更新将触发新 run，实际个人签名结果以新 run 的步骤和产物为准。
