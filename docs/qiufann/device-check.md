@@ -1,14 +1,17 @@
 # 手机首次安装与订阅连接验收
 
-本清单用于秋凡手机手动验收。已确认手机没有安装过 Polaris，不涉及已有 Polaris 数据迁移。GitHub 下载使用 Via；与阿昼的会话使用 Edge。
+本清单用于秋凡手机手动验收。最初手机没有安装过 Polaris，目前已安装并打开，正在处理首条订阅消息报错。GitHub 下载使用 Via；与阿昼的会话使用 Edge。
 
 ## 下载入口
+
+- 当前覆盖更新：[第 10 版 signed ZIP](https://github.com/Qiufannn/polaris-local-first/actions/runs/43607482701/artifacts/14119511124)，修正响应格式判断并增加安全错误分类。已有个人版直接覆盖安装，沿用账号和聊天，实际结果待反馈。
+- 以下第 8 / 9 版保留为最初签名连续性验证记录；已有安装无需为测试而回退或重装旧版。
 
 - 首次安装：[第 8 版 signed ZIP](https://github.com/Qiufannn/polaris-local-first/actions/runs/43605081112/artifacts/14117853395)。
 - 覆盖升级：[第 9 版 signed ZIP](https://github.com/Qiufannn/polaris-local-first/actions/runs/43605621872/artifacts/14117578766)。
 - 两版个人证书已下载独立验签并比对一致；都从 ZIP 解压后安装 `polaris.apk`。Actions artifact 保留 14 天。
 
-## 首次安装
+## 安装和连接（已有安装直接覆盖更新）
 
 1. 在 Via 打开指定 GitHub Actions run，找到带 `signed` 的 artifact，下载 ZIP 并解压。不要选择 `unsigned`。
 2. 打开解压出的 `polaris.apk`，按 Android 正常安装提示操作；若系统拦截或报签名/解析错误，记录原提示并停止，不关闭系统防护来强行安装。
@@ -19,7 +22,7 @@
 
 ## 同签名覆盖升级
 
-第一版安装、授权和本地数据确认后，用第二个更高 versionCode 的 signed APK 直接覆盖安装，不先卸载。确认第一段聊天仍在、账号连接仍有效，再发送第二条消息。这才构成手机上的覆盖升级和数据留存证据；CI 对两个 APK 的证书一致性检查不能替代此步骤。
+用当前第 10 版直接覆盖现有个人安装，不先卸载。确认第一段聊天仍在、账号连接仍有效，再发送第二条消息。这才构成手机上的覆盖升级和数据留存证据；CI 对两个 APK 的证书一致性检查不能替代此步骤。
 
 ## 验收记录
 

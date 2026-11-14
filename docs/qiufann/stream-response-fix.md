@@ -17,4 +17,13 @@
 
 `POLARIS_ANDROID_VERSION_CODE=10` 的 testReleaseUnitTest + assembleRelease 在 51 秒内成功。原生 25 项，0 failures / errors / skipped；其中新增 7 项覆盖正确媒体类型、错标/缺失媒体类型真实 SSE 的字节完整性、BOM/注释、首字段立即返回、JSON 错误白名单和信息不外泄、拒绝 JSON/HTML/空响应，以及探查上限。git diff --check 通过。
 
-在线完整回归和个人签名等待本次 push 的 CI。已固定个人证书不变；产物验证完成后回填下载入口。手机重试后才可判断原问题是否解决；如果显示新的安全分类，应继续按实际提示定位，不能把本次格式兼容性改进当作已确认服务根因。
+手机重试后才可判断原问题是否解决；如果显示新的安全分类，应继续按实际提示定位，不能把本次格式兼容性改进当作已确认服务根因。
+
+## 第 10 版在线回执
+
+- [CI #10](https://github.com/Qiufannn/polaris-local-first/actions/runs/43607482701)，源码 `445da649b76b7bec4733b241ab9d39969e6d8655`，四个作业成功。网页 489 个文件 / 3100 项测试；下载核对原生 XML 25 项，0 failures / errors / skipped。实际个人签名与固定证书核对均执行成功。
+- [覆盖更新用 signed ZIP](https://github.com/Qiufannn/polaris-local-first/actions/runs/43607482701/artifacts/14119511124)，名称 `polaris-android-signed-10-1`。ZIP SHA256 `0faf55d4e61c5f5d88a89365f8fb66c16d1ae357d31cd4da313fdd3e891b9dc3`，与 GitHub digest 一致。
+- APK 15,761,098 bytes，SHA256 `4b01029fedf0d0674d0a7253984489edaa245775cfe080de9c6b3332b9659b46`；包名 `com.alyssa.polaris`、versionCode `10`、versionName `1.0-qiufann.10`。
+- 下载后独立 apksigner 验签通过；公开证书 SHA256 仍为 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，与第 8 / 9 版一致。源码回执、run_id、ZIP / APK 校验值与所有 unsigned payload 条目字节均核对通过。
+- 手机操作：解压后打开 polaris.apk 覆盖现有个人版本，不先卸载；沿用已有账号和原聊天，发送一条短消息。若仍失败，只反馈新提示文字。当前未确认本版在本人手机上成功回复。
+- 本次回填仅更新文档，使用 [skip ci]；没有继续其他功能阶段，也未索取或接收任何账号凭证或签名恢复值。
