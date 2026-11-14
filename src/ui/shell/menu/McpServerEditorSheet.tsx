@@ -5,6 +5,8 @@ import { useI18n } from '../../../i18n/useI18n';
 import type { McpServerConfig, McpServerHeader, McpServerToolConfig, McpServerTransport } from '../../../types/domain';
 import { Icon } from '../../Icon';
 import { McpSiteConnection } from './McpSiteConnection';
+import { MemorySourceConnection } from './MemorySourceConnection';
+import { isPublicGithubClientId } from '../../../engines/mcpAuth';
 
 type McpServerEditorSheetProps = {
   open: boolean;
@@ -57,6 +59,8 @@ export function McpServerEditorSheet({
   const { t } = useI18n();
   const [authKind, setAuthKind] = useState<McpServerConfig['authKind']>();
   const [oauthReady, setOauthReady] = useState(false);
+  const [publicClientId, setPublicClientId] = useState('');
+  const [memoryRootUrl, setMemoryRootUrl] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [transport, setTransport] = useState<McpServerTransport>('streamable-http');
@@ -69,6 +73,8 @@ export function McpServerEditorSheet({
   useEffect(() => {
     if (!open) return;
     setAuthKind(server?.authKind);
+    setPublicClientId(server?.publicClientId ?? '');
+    setMemoryRootUrl(server?.memoryRootUrl ?? '');
     setOauthReady(false);
     setName(server?.name ?? '');
     setDescription(server?.description ?? '');
@@ -114,6 +120,8 @@ export function McpServerEditorSheet({
       url: trimmedUrl,
       headers: authKind ? [] : normalizedHeaders(),
       ...(authKind ? { authKind } : {}),
+      ...(authKind === 'github-memory-device' ? { publicClientId: publicClientId.trim() } : {}),
+      ...(memoryRootUrl.trim() ? { memoryRootUrl: memoryRootUrl.trim() } : {}),
       tools,
       isActive: true
     };
@@ -161,6 +169,9 @@ export function McpServerEditorSheet({
       return;
     }
 
+    if (authKind === 'github-memory-device' && !isPublicGithubClientId(publicClientId.trim())) {
+      window.alert('请填写 GitHub App 的公开 Client ID（Iv 开头），不是 Client Secret 或 token。'); return;
+    }
     onSave({
       authKind,
       name: trimmedName,
@@ -169,6 +180,8 @@ export function McpServerEditorSheet({
       url: trimmedUrl,
       headers: authKind ? [] : normalizedHeaders(),
       ...(authKind ? { authKind } : {}),
+      ...(authKind === 'github-memory-device' ? { publicClientId: publicClientId.trim() } : {}),
+      ...(memoryRootUrl.trim() ? { memoryRootUrl: memoryRootUrl.trim() } : {}),
       tools,
       isActive: authKind ? isActive && oauthReady : isActive
     });
@@ -254,15 +267,30 @@ export function McpServerEditorSheet({
           <label>
             连接方式
             <select value={authKind ?? ''} onChange={event => {
-              const next = event.target.value === 'sites-memory-oauth' ? 'sites-memory-oauth' as const : undefined;
+              const next = ['sites-memory-oauth', 'notion-memory-oauth', 'github-memory-device'].includes(event.target.value) ? event.target.value as McpServerConfig['authKind'] : undefined;
               setAuthKind(next); setOauthReady(false); setTestState({ status: 'idle' });
               if (next) { setTransport('streamable-http'); setTools([]); }
+              if (next === 'notion-memory-oauth') setUrl('https://mcp.notion.com/mcp');
             }}>
               <option value="">普通 MCP</option>
-              <option value="sites-memory-oauth">小家记忆（独立登录，只读）</option>
+              <option value="github-memory-device">GitHub 主记忆（设备登录，先验证读取）</option>
+              <option value="notion-memory-oauth">Notion 日记（官方网页登录）</option>
+              <option value="sites-memory-oauth">小家展示 MCP（实验性，只读）</option>
             </select>
           </label>
-          {authKind && <McpSiteConnection
+          {authKind === 'github-memory-device' && <label>公开 Client ID（Iv 开头）
+            <input value={publicClientId} onChange={event => setPublicClientId(event.target.value)} placeholder="GitHub App 的 Client ID，不是密钥" />
+          </label>}
+          {authKind === 'notion-memory-oauth' && <label>日记入口页面链接
+            <input value={memoryRootUrl} onChange={event => setMemoryRootUrl(event.target.value)} placeholder="原 Notion 日记本页面链接" />
+          </label>}
+          {(authKind === 'github-memory-device' || authKind === 'notion-memory-oauth') && <MemorySourceConnection
+            server={server?.authKind === authKind && server.url.trim() === url.trim()
+              && (authKind !== 'github-memory-device' || server.publicClientId === publicClientId.trim())
+              ? { ...server, memoryRootUrl: memoryRootUrl.trim() } : null}
+            onReady={setOauthReady} onEnable={() => setIsActive(true)} onTools={setTools}
+          />}
+          {authKind === 'sites-memory-oauth' && <McpSiteConnection
             address={server?.authKind === authKind && server.url.trim() === url.trim() ? { serverId: server.id, url: server.url.trim() } : null}
             onReady={setOauthReady} onEnable={() => setIsActive(true)}
           />}

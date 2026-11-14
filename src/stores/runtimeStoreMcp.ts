@@ -1,3 +1,4 @@
+import { MCP_AUTH_KINDS, isProtectedMcp, isPublicGithubClientId } from '../engines/mcpAuth';
 import { createUid } from '../engines/id';
 import { buildMcpHandle } from '../engines/mcpHandle';
 import type {
@@ -144,8 +145,10 @@ export function normalizeMcpServer(
     description: input?.description?.trim() || '',
     transport: normalizeMcpTransport(input?.transport),
     url: input?.url?.trim() || '',
-    ...(input?.authKind === 'sites-memory-oauth' ? { authKind: 'sites-memory-oauth' as const } : {}),
-    headers: input?.authKind === 'sites-memory-oauth' ? [] : normalizeMcpHeaders(input?.headers),
+    ...(input?.authKind && MCP_AUTH_KINDS.includes(input.authKind) ? { authKind: input.authKind } : {}),
+    ...(input?.publicClientId && isPublicGithubClientId(input.publicClientId) ? { publicClientId: input.publicClientId } : {}),
+    ...(input?.memoryRootUrl ? { memoryRootUrl: input.memoryRootUrl.trim() } : {}),
+    headers: input && isProtectedMcp(input) ? [] : normalizeMcpHeaders(input?.headers),
     tools: normalizeMcpTools(input?.tools),
     isActive: input?.isActive ?? true
   };
@@ -198,10 +201,12 @@ export function serializeMcpServersToJson(servers: McpServerConfig[]) {
           name: server.name,
           transport: server.transport,
           url: server.url,
-          ...(server.authKind === 'sites-memory-oauth' ? { authKind: server.authKind } : {}),
+          ...(isProtectedMcp(server) ? { authKind: server.authKind } : {}),
+          ...(server.publicClientId && isPublicGithubClientId(server.publicClientId) ? { publicClientId: server.publicClientId } : {}),
+          ...(server.memoryRootUrl ? { memoryRootUrl: server.memoryRootUrl } : {}),
           description: server.description || undefined,
           headers: Object.fromEntries(
-            (server.authKind === 'sites-memory-oauth' ? [] : server.headers)
+            (isProtectedMcp(server) ? [] : server.headers)
               .filter((header) => header.key.trim())
               .map((header) => [header.key.trim(), header.value])
           ),
@@ -233,12 +238,14 @@ export function parseMcpServersJson(jsonText: string): McpServerConfig[] {
         throw new Error(`mcpServers.${key} 不是合法对象。`);
       }
       const entry = value as Record<string, unknown>;
-      if (entry.authKind !== undefined && entry.authKind !== 'sites-memory-oauth') throw new Error('不支持该 MCP 授权类型，未降级为普通连接。');
+      if (entry.authKind !== undefined && !MCP_AUTH_KINDS.includes(entry.authKind as NonNullable<McpServerConfig['authKind']>)) throw new Error('不支持该 MCP 授权类型，未降级为普通连接。');
       return normalizeMcpServer({
         handle: key,
         name: typeof entry.name === 'string' ? entry.name : undefined,
         description: typeof entry.description === 'string' ? entry.description : undefined,
-        ...(entry.authKind === 'sites-memory-oauth' ? { authKind: 'sites-memory-oauth' as const } : {}),
+        ...(entry.authKind ? { authKind: entry.authKind as McpServerConfig['authKind'] } : {}),
+        ...(typeof entry.publicClientId === 'string' && isPublicGithubClientId(entry.publicClientId) ? { publicClientId: entry.publicClientId } : {}),
+        ...(typeof entry.memoryRootUrl === 'string' ? { memoryRootUrl: entry.memoryRootUrl } : {}),
         transport: normalizeMcpTransport(entry.transport ?? entry.type),
         url: typeof entry.url === 'string'
           ? entry.url

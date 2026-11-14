@@ -37,6 +37,8 @@ type ToolsListResult = {
 
 export type McpResolvedToolDefinition = {
   authKind?: McpServerConfig['authKind'];
+  publicClientId?: string;
+  memoryRootUrl?: string;
   schemaName: string;
   serverId: string;
   serverName: string;
@@ -134,12 +136,15 @@ function normalizeDiscoveredTools(
         schemaName: buildMcpSchemaToolName(server, toolName),
         serverId: server.id,
         ...(server.authKind ? { authKind: server.authKind } : {}),
+        ...(server.publicClientId ? { publicClientId: server.publicClientId } : {}),
+        ...(server.memoryRootUrl ? { memoryRootUrl: server.memoryRootUrl } : {}),
         serverName: server.name,
         serverHandle: buildMcpHandle(server),
         transport: server.transport,
         url: server.url,
         toolName,
-        description: tool.description?.trim() || savedTool?.description || `调用 MCP 工具 ${toolName}`,
+        description: (tool.description?.trim() || savedTool?.description || `调用 MCP 工具 ${toolName}`)
+          + (server.authKind === 'notion-memory-oauth' ? `。这是日记和补充来源，GitHub 为主记忆；按需读取。指定日记入口：${server.memoryRootUrl || '由秋凡指定'}` : ''),
         inputSchema: normalizeInputSchema(tool.inputSchema ?? savedTool?.inputSchema),
         enabled: savedTool?.enabled ?? true
       };
@@ -305,6 +310,8 @@ function buildMcpCatalogCacheKey(server: McpServerConfig) {
     handle: server.handle,
     transport: server.transport,
     authKind: server.authKind,
+    publicClientId: server.publicClientId,
+    memoryRootUrl: server.memoryRootUrl,
     url: server.url,
     headers: server.headers.map((header) => [header.key, header.value])
   });
@@ -425,6 +432,7 @@ export async function invokeMcpTool(args: {
     transport: args.tool.transport,
     url: args.tool.url,
     ...(args.tool.authKind ? { authKind: args.tool.authKind } : {}),
+    ...(args.tool.publicClientId ? { publicClientId: args.tool.publicClientId } : {}),
     headers: args.headers ?? [],
     tools: [],
     isActive: true

@@ -16,8 +16,10 @@ final class ChatGptLoopbackListener implements AutoCloseable {
     private final ServerSocket server = new ServerSocket();
     private volatile boolean closed;
 
-    ChatGptLoopbackListener() throws Exception {
-        server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), 4);
+    ChatGptLoopbackListener() throws Exception { this(0); }
+    ChatGptLoopbackListener(int preferredPort) throws Exception {
+        if (preferredPort != 0 && (preferredPort < 1024 || preferredPort > 65535)) throw new Exception("回调端口不正确。");
+        server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), preferredPort), 4);
         server.setSoTimeout(1000);
     }
 

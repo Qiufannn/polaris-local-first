@@ -6,6 +6,7 @@
 // SSE wire-frame parser. No session state, no catalog, no JSON-RPC dispatch.
 
 import type { McpServerConfig } from '../types/domain';
+import { isProtectedMcp } from './mcpAuth';
 
 export const MCP_PROTOCOL_VERSION = '2025-03-26';
 export const MCP_CLIENT_INFO = {
@@ -38,7 +39,7 @@ export function buildServerHeaders(server: McpServerConfig, extraHeaders?: Recor
   const headers = new Headers();
   headers.set('Accept', 'application/json, text/event-stream');
 
-  for (const header of server.authKind === 'sites-memory-oauth' ? [] : server.headers) {
+  for (const header of isProtectedMcp(server) ? [] : server.headers) {
     const key = header.key.trim();
     if (!key) continue;
     headers.set(key, header.value);

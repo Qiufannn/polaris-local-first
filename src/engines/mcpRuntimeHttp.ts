@@ -8,6 +8,7 @@
 
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { mcpSiteAuth } from '../native/mcpSiteAuth';
+import { memorySources } from '../native/memorySources';
 import {
   createRpcId,
   ensureSuccessMessage,
@@ -83,6 +84,14 @@ async function requestMcpHttp(
   init: RequestInit,
   options: McpTransportOptions
 ) {
+  if (options.server.authKind === 'notion-memory-oauth' || options.server.authKind === 'github-memory-device') {
+    if (options.server.transport !== 'streamable-http' || url !== options.server.url) throw new Error('记忆连接不支持更换目标地址或匿名回退。');
+    const incoming = new Headers(init.headers); const headers: Record<string, string> = {};
+    for (const key of ['Mcp-Session-Id', 'MCP-Protocol-Version']) { const value = incoming.get(key); if (value) headers[key] = value; }
+    const result = await memorySources.request({ serverId: options.server.id, url, authKind: options.server.authKind, publicClientId: options.server.publicClientId,
+      method: init.method ?? 'POST', body: typeof init.body === 'string' ? init.body : '', headers });
+    return new Response(result.data || null, { status: result.status, headers: { 'Content-Type': 'application/json', ...result.headers } });
+  }
   if (options.server.authKind === 'sites-memory-oauth') {
     if (options.server.transport !== 'streamable-http' || url !== options.server.url) {
       throw new Error('小家授权连接仅支持已保存资源的 Streamable HTTP，不允许改写目标地址。');

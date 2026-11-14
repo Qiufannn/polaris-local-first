@@ -25,6 +25,7 @@ import {
   parseSseEvents
 } from './mcpRuntimeTransport';
 import type { InitializeResult, McpTransportOptions } from './mcpRuntimeTransport';
+import { isProtectedMcp } from './mcpAuth';
 
 type PendingSseResponse = {
   resolve: (value: JsonRpcMessage) => void;
@@ -211,7 +212,7 @@ async function openLegacySseConnection(options: McpTransportOptions): Promise<Le
 }
 
 export async function initializeLegacySseConnection(options: McpTransportOptions) {
-  if (options.server.authKind === 'sites-memory-oauth') throw new Error('小家授权连接仅支持 Streamable HTTP，不降级为旧式 SSE。');
+  if (isProtectedMcp(options.server)) throw new Error('记忆授权连接仅支持 Streamable HTTP，不降级为旧式 SSE。');
   const connection = await openLegacySseConnection(options);
   try {
     const initializeResponse = ensureSuccessMessage(
