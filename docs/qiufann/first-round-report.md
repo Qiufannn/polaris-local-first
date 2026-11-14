@@ -5,9 +5,9 @@
 ## 七项状态
 
 1. **获取上游：完成。** 克隆 `Aevella/polaris-local-first`，前后两次 `git ls-remote upstream refs/heads/main` 均为 `a510f9ae68a70dead5ad344829466d3e5770f600`。上游提交标题 `Harden LocalData import and recovery safety (#6)`，提交时间 `2026-08-02T23:57:14+08:00`。
-2. **受控仓库/分支：本地完成，GitHub 受阻。** 创建本地受控裸仓库 `origin`，`upstream` 指向原作者；`main` 保留原始基线，定制放在 `qiufann/chatgpt-plan-android`。当前 GitHub 连接对 fork 和创建个人仓库均返回 `403 Resource not accessible by integration`。没有远端 fork/个人仓库，不能声称远端托管已完成。
+2. **受控仓库/分支：fork 已接入。** 初始 GitHub 连接对 fork 和创建个人仓库均返回 `403 Resource not accessible by integration`；随后秋凡本人创建 <https://github.com/Qiufannn/polaris-local-first>。现有连接仍有效，已核对仓库和写入权限；`origin` 接本人 fork，原本地裸仓库保留为 `local-backup`，`upstream` 接原作者且禁用 push。远端 `main` 与基线一致，定制仅在 `qiufann/chatgpt-plan-android`。
 3. **基线检查：Web/TypeScript/测试/Android unsigned release 全部完成。** 未改动业务代码或 lockfile；不等于完成手机运行验收。
-4. **APK CI：配置完成并通过静态验证；在线执行受第 2 项阻挡。** 两个独立作业：现有类型/测试，以及 Web → Capacitor → unsigned release APK → artifact。无签名、无 Secrets、无发布动作。GitHub 在线运行结果与 artifact URL 暂无。
+4. **APK CI：配置完成并通过静态验证，正在补齐在线验证。** 两个独立作业：现有类型/测试，以及 Web → Capacitor → unsigned release APK → artifact。无签名、无 Secrets、无发布动作。在线结果按实际 run 补充，不预先宣称成功。
 5. **代码审阅：完成。** Provider、Responses、Android 网络/SQLite 桥、普通配置与备份管线均已审阅。具体差距见 `chatgpt-plan-design.md`。
 6. **登录文件清单与最小顺序：完成方案，尚未实施。** 见 `chatgpt-plan-design.md` 的新建/修改文件表和六个最小步骤。
 7. **不索取/写入凭证：遵守。** 未向秋凡索取或新建写入 API Key、OAuth token、密码或签名密钥；未运行授权、推理、签名、debug keystore 生成或收费线路测试。GitHub 请求仅使用平台已配置的连接。
@@ -43,7 +43,7 @@ Android 构建使用继承的网络代理及环境已有的系统 CA truststore�
 - `aapt dump badging`：包名 `com.alyssa.polaris`，versionCode `1`，versionName `1.0`，minSdk `24`，targetSdk `36`；包配置保留上游。
 - `apksigner verify --verbose`：exit 1，`DOES NOT VERIFY / Missing META-INF/MANIFEST.MF`，符合本轮未签名构建的预期，不是可安装 APK。
 - 工作区扫描未发现新建 `.jks` / `.keystore` 文件。
-- 在线 GitHub Actions artifact URL：**无，远端建仓受阻**。本地产物不能冒充在线 CI artifact。
+- 在线 GitHub Actions artifact URL：待本轮在线 run 实际返回后补充；本地产物不能冒充在线 CI artifact。
 - 未执行 Android 10/较新系统真机测试、首次启动、重启保留、系统杀进程或覆盖升级。未修改 versionCode 或签名策略。
 
 当前没有检查出阻止 Web/Android 编译或单元测试通过的上游代码失败。既有构建警告包括 Web chunk 体积、Android flatDir/弃用 API；环境初次安装与证书错误已处理。另有静态观察：manifest 声明 `.PolarisTriggerAlarmReceiver`，上游 Android Java 源码中未发现该类；本轮未修改该既有声明，通知/闹钟运行能力仍待手机或后续原生检查，不能由 assembleRelease 成功推定。
@@ -62,8 +62,8 @@ Android 构建使用继承的网络代理及环境已有的系统 CA truststore�
 ## 手机端与下一步边界
 
 当前不要求秋凡安装或卸载 App，不要求登录，不要求填写密钥。
-最短可解阻动作是在手机 GitHub 中为上游创建本人 fork 并提供仓库链接；若现有连接无权写该仓库，需要在 GitHub 插件设置里授权该仓库，仍不需要把 token 发到聊天。
+秋凡已完成手机创建 fork 并提供链接；改过 GitHub 密码后，当前连接仍能访问该仓库并读取写入权限，无需向聊天发送密码或重新提供 token。
 
-远端未解阻时，本轮保留在本地受控仓库。在线 Actions 链接、可下载安装的签名 APK、真实手机重启留存、同签名升级和订阅授权闭环全部未验收。未签名 APK 即使成功构建也不能直接安装；阶段 A 整体验收不能标为完成。
+本轮补齐远端分支和在线 Actions 后仍停止。可下载安装的签名 APK、真实手机重启留存、同签名升级和订阅授权闭环全部未验收。未签名 APK 即使成功构建也不能直接安装；阶段 A 整体验收不能标为完成。
 
 本轮停止点：把实际证据和方案交给秋凡；后续登录实现、签名与后续阶段都等待她新的指示。

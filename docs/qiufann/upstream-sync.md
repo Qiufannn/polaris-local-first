@@ -8,12 +8,12 @@
 - 定制分支：`qiufann/chatgpt-plan-android`；本轮只增加 CI 和文档。
 - `upstream` 始终指向原仓库；`main` 只做上游镜像。
 - 本地已把 `upstream` 的 push URL 设为 `DISABLED`，防止误推原作者仓库；fetch URL 保留原址。
-- 当前 `origin` 是本地受控裸仓库。GitHub fork 请求被当前集成以 HTTP 403 拒绝，**尚未创建远端个人仓库，也没有在线 Actions run**。
-- 远端可用后再把 `origin` 设置为本人 fork，推送两个分支；不要把 `origin` 指向原作者仓库，不要上传任何凭证。
+- 当前 `origin` 是 <https://github.com/Qiufannn/polaris-local-first.git>。初始 GitHub 建仓请求被集成以 HTTP 403 拒绝，随后秋凡本人创建 fork，现有连接已成功读取该仓库和权限，无需提供新凭证。
+- 原本的本地裸仓库保留为 `local-backup`。远端 `main` 已核对与基线一致；定制提交只推独立分支，在线 Actions 结果见第一轮回执。
 
-## 第一次接入本人 fork
+## 已完成的 fork 接入与分支推送方式
 
-手机浏览器中在上游点击 Fork 后，可由后续已授权的代码会话执行：
+秋凡已在手机浏览器创建本人 fork，代码会话已接入 `origin`。以下是同一分支策略的推送方式：
 
 ```sh
 git remote set-url origin https://github.com/Qiufannn/polaris-local-first.git
@@ -25,7 +25,7 @@ git push -u origin qiufann/chatgpt-plan-android
 
 本人 fork 的默认分支设为 `qiufann/chatgpt-plan-android`，`main` 仍保持纯上游镜像。GitHub 的手动 workflow_dispatch 要求 workflow 文件在默认分支；若仍以纯镜像 main 为默认分支，先用定制分支 push 触发，不宣称网页手动触发已可用。
 
-这不是本轮已执行的远端操作。无需向会话发送 token 或密码。
+无须向会话发送 token 或密码。不要重建已有 fork；重启任务时先核对远端分支和本地差异。
 
 ## 后续同步顺序
 
