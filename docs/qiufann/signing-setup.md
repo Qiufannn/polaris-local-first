@@ -1,6 +1,6 @@
 # 稳定个人签名的配置与验证
 
-当前状态：秋凡在手机 GitHub 官方页面保存恢复值后，CI #8 已真实完成个人签名；已下载独立核对 APK、源码回执、证书及完整性。没有读取、索取或接收恢复值、密码或私钥。真机安装、官方授权和覆盖升级仍待本人验收。
+当前状态：秋凡在手机 GitHub 官方页面保存恢复值后，CI #8 / #9 已真实完成个人签名；已下载独立核对两份 APK、源码回执、证书及完整性，两版证书均匹配仓库固定值。没有读取、索取或接收恢复值、密码或私钥。真机安装、官方授权和覆盖升级仍待本人验收。
 
 ## 手机手动配置：一个新 Secret
 
@@ -69,3 +69,12 @@ GitHub 配置和真实个人签名已通过 CI #8 验证。仍待 Android 10/较
 - 公开个人证书 SHA256 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，与公开测试证书不同。已独立运行 `apksigner verify --min-sdk-version 29 --verbose --print-certs` 成功，使用 v3 签名；所有 unsigned APK ZIP 条目字节均保持一致。
 - ZIP 仅含 APK、校验值、源码回执和公开证书信息，未包含私钥或恢复值。源提交 SHA / run_id / versionCode 全部匹配。
 - 本次将上面公开证书固定到 `tools/android-signing/expected-certificate.sha256`，触发下一次 CI 验证同签名更新。该第二次构建的实际结果另行记录；手机验收步骤见 [手机检查清单](device-check.md)。
+
+## 固定证书后的第二版（CI #9）
+
+- [CI #9](https://github.com/Qiufannn/polaris-local-first/actions/runs/43605621872)，源码 `5539d24524e243569e7eacf35e96774d1558bf9f`。四个作业全部成功，网页 489 个文件 / 3100 项测试，原生 XML 18 项、0 failures / errors / skipped。
+- [signed artifact](https://github.com/Qiufannn/polaris-local-first/actions/runs/43605621872/artifacts/14117578766)：`polaris-android-signed-9-1`，ZIP SHA256 `4ce983b20e9d223fc030bf324f019d3e815e93d7d675465d41b172bf6d2c7a1b`，与 GitHub digest 一致。
+- APK 15,744,714 bytes，SHA256 `e381867628d388fff5a67be780fc0df83f8acaac6828ac02d9cef43d32521419`；同包名、versionCode `9`、versionName `1.0-qiufann.9`。
+- 已独立验签，证书与第 8 版及仓库固定值 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5` 一致；正式签名入口和上传前两处固定值核对均实际通过。源码回执、run_id、APK / ZIP 校验值和 unsigned payload 字节均已核对。
+- 这证明 CI 能恢复同一签名身份并生成递增版本；尚不能替代手机覆盖升级。两份包已交付，按 [手机检查清单](device-check.md) 先用第 8 版建立聊天，再用第 9 版直接覆盖安装，实际结果仍待本人报告。
+- 本次回填仅更新文档并使用 `[skip ci]`，没有改变已验证应用源码或签名工具。未进入后续功能阶段。

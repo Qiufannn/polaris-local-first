@@ -2,6 +2,12 @@
 
 本清单用于秋凡手机手动验收。已确认手机没有安装过 Polaris，不涉及已有 Polaris 数据迁移。GitHub 下载使用 Via；与阿昼的会话使用 Edge。
 
+## 下载入口
+
+- 首次安装：[第 8 版 signed ZIP](https://github.com/Qiufannn/polaris-local-first/actions/runs/43605081112/artifacts/14117853395)。
+- 覆盖升级：[第 9 版 signed ZIP](https://github.com/Qiufannn/polaris-local-first/actions/runs/43605621872/artifacts/14117578766)。
+- 两版个人证书已下载独立验签并比对一致；都从 ZIP 解压后安装 `polaris.apk`。Actions artifact 保留 14 天。
+
 ## 首次安装
 
 1. 在 Via 打开指定 GitHub Actions run，找到带 `signed` 的 artifact，下载 ZIP 并解压。不要选择 `unsigned`。
