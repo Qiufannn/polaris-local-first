@@ -28,6 +28,7 @@
 - 秋凡已明确同意操作手机里的 GitHub 设置。手机工具两次读取屏幕及一次查询 GitHub App 均返回 MCP `-32603 Internal error`；没有读取到屏幕，也没有点击或修改手机设置。
 - 已请秋凡打开手机连接服务、确认在线并保持解锁；这是恢复连接，**不需要再次授权手机操作**。
 - 秋凡回复“好啦”后，手机工具返回 GitHub Secrets 设置网址已打开，但后续读取屏幕仍返回 Internal error，接着返回 `Session terminated`。因此未确认页面内容，未点击、未输入、未改动任何 Secrets，也未读取密码。
+- 再次刷新后恢复了一次读屏，确认系统弹出“Edge / 双开 Edge”的选择框。尝试选择普通 Edge 时工具再次 Internal error，下一次读屏为 Session terminated；无法确认该次点击是否生效。没有继续点击或填写安全设置。用户已说明需要时应返回 Edge 的本会话；通道断开后无法代替她确认返回，因此已请她手动返回。
 - 手机连接恢复后先检查 GitHub 官方安全设置入口。如果要求本人验证，由秋凡在手机本地完成，不索取验证密码或 token。
 
 ## 仍待实际验证
@@ -39,3 +40,13 @@
 - `actionlint .github/workflows/qiufann-android.yml` 通过，`git diff --check` 通过。
 - 指定 `POLARIS_ANDROID_VERSION_CODE=5` 的 `testReleaseUnitTest assembleRelease` 通过（39 秒、471 个任务）；`aapt dump badging` 确认为同包名 `com.alyssa.polaris`、versionCode `5`、versionName `1.0-qiufann.5`。
 - 上述检查未提供签名材料，未创建 keystore；签名路径的真实成功验收仍未进行。
+
+## 最终在线验证
+
+- 源码 `9776ce06d1e539aaac89d51fbaa84352528c733e` 的 [CI #6](https://github.com/Qiufannn/polaris-local-first/actions/runs/43598332100) 三个作业均成功。
+- 网页层 489 个文件、3100 项测试通过；原生 JUnit XML 合计 18 项、0 failures / 0 errors；Web/Android 构建通过。
+- 签名作业仅执行了配置检查。四个 Secrets 均未配置，实际签名、下载待签 APK 和上传 signed artifact 的步骤全部 skipped。**CI 成功不代表已签名。**
+- 仅有 [unsigned artifact](https://github.com/Qiufannn/polaris-local-first/actions/runs/43598332100/artifacts/14115640390)，名称 `polaris-android-unsigned-6-1`；已实际下载核对源码 SHA、APK SHA256、18 项测试 XML 和 ZIP 完整性。
+- 线上包名 `com.alyssa.polaris`，versionCode `6`，versionName `1.0-qiufann.6`，说明 CI 的递增版本配置已生效。APK 大小 15,646,720 bytes，SHA256 `cbbe4270b9a8d53dc7a21fab6a3994f2eeb3c79d06ee0243711436af36d7be8c`。
+- ZIP SHA256 `23fac2e868c2db2fe158e9ad49eb049067ded8959c3d912c18a5e8a4c3ba8192`，与 GitHub digest 一致。该包仍不能直接安装。
+- 最后回填提交仅更新文档并使用 `[skip ci]`；已验证源码仍明确为 `9776ce0`。没有在手机或仓库配置实际 Secrets，也未生成真实 APK 签名密钥。

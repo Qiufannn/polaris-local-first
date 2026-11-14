@@ -8,6 +8,7 @@
 - Personal fork: [Qiufannn/polaris-local-first](https://github.com/Qiufannn/polaris-local-first). `origin` now points to this fork; the initial integration-only repository creation returned HTTP 403 and the owner created the fork. Hosted CI status is recorded in the first-round report.
 - Known merge conflicts: none at this snapshot. Future conflict candidates: this README, `.github/workflows/qiufann-android.yml`, and `docs/qiufann/`.
 - [Upstream sync and unsigned CI](docs/qiufann/upstream-sync.md) · [Initial design](docs/qiufann/chatgpt-plan-design.md) · [Subscription implementation report](docs/qiufann/phase-b-report.md).
+- [Optional stable signing preparation and current blockers](docs/qiufann/signing-setup.md). No signing key or installable signed APK has been provisioned.
 
 Original author attribution and AGPL-3.0-only licensing are retained. The unsigned APK is for build inspection and cannot be installed until a later, separately approved signing step.
 
