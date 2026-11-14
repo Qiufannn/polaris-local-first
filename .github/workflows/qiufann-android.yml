@@ -1,0 +1,83 @@
+name: Qiufann Android baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [qiufann/chatgpt-plan-android]
+  pull_request:
+    branches: [main, qiufann/chatgpt-plan-android]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qiufann-android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Android/Web checks do not need the desktop Electron executable.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+jobs:
+  baseline:
+    name: Existing type checks and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            workers/polaris-api/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run typecheck:extra
+      - run: npm run typecheck:worker
+      - run: npm test -- --maxWorkers=2
+
+  android:
+    name: Build unsigned release APK (no signing keys)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Independent of baseline so failures remain visible while an APK can be inspected.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install the upstream Android SDK versions
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: npx --no-install cap sync android
+      - name: Assemble without creating a debug keystore
+        working-directory: android
+        run: ./gradlew --no-daemon --console=plain assembleRelease
+      - name: Collect unsigned APK and source receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts
+          cp android/app/build/outputs/apk/release/app-release-unsigned.apk ci-artifacts/polaris-unsigned.apk
+          printf 'source_sha=%s\nrun_id=%s\nrun_attempt=%s\nsigning=unsigned\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > ci-artifacts/build-info.txt
+          cd ci-artifacts
+          sha256sum polaris-unsigned.apk > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: polaris-android-unsigned-${{ github.run_number }}-${{ github.run_attempt }}
+          path: ci-artifacts/
+          if-no-files-found: error
+          retention-days: 14

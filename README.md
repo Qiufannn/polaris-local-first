@@ -1,5 +1,16 @@
 # Polaris
 
+## Qiufann Android branch — first-round preparation
+
+- Upstream: [Aevella/polaris-local-first](https://github.com/Aevella/polaris-local-first), `main` at `a510f9ae68a70dead5ad344829466d3e5770f600`.
+- Last upstream snapshot: 2026-11-14 (Asia/Shanghai). `main` remains an upstream mirror; custom work lives on `qiufann/chatgpt-plan-android`.
+- Custom changes so far: unsigned Android APK CI and the subscription-login code review / implementation plan. ChatGPT subscription login is **not implemented**.
+- Remote status: GitHub fork creation was denied by the current integration (HTTP 403). The controlled `origin` is currently local; no hosted CI run has occurred.
+- Known merge conflicts: none at this snapshot. Future conflict candidates: this README, `.github/workflows/qiufann-android.yml`, and `docs/qiufann/`.
+- [Upstream sync and unsigned CI](docs/qiufann/upstream-sync.md) · [ChatGPT plan design and proposed file list](docs/qiufann/chatgpt-plan-design.md).
+
+Original author attribution and AGPL-3.0-only licensing are retained. The unsigned APK is for build inspection and cannot be installed until a later, separately approved signing step.
+
 Polaris is a local-first AI workspace for sustained work with models, collaborators, saved materials, tools, and personal project context.
 
 Most AI chat clients treat a conversation as a single message stream. Polaris treats it as a workspace: conversations survive restarts, collaborators keep identity and memory boundaries, useful outputs become cards or project materials, and model-visible tools leave evidence that the next request can use.
