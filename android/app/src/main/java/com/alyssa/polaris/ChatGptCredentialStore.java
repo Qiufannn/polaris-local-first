@@ -10,6 +10,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.MessageDigest;
 import java.util.UUID;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -44,12 +45,19 @@ final class ChatGptCredentialStore implements ChatGptSession.Storage {
         }
     }
 
+    private static boolean exists(AtomicFile file) {
+        // Android 10 may leave only .bak if the process dies between renaming and opening the new base.
+        return file.getBaseFile().exists() || new File(file.getBaseFile().getPath() + ".bak").exists();
+    }
+
     private static void write(AtomicFile file, byte[] bytes) throws Exception {
         FileOutputStream output = null;
         try {
             output = file.startWrite();
             output.write(bytes);
             file.finishWrite(output);
+            output = null;
+            if (!MessageDigest.isEqual(bytes, read(file))) throw new Exception("安全凭证写入未通过校验，请重试。");
         } catch (Exception error) {
             if (output != null) file.failWrite(output);
             throw error;
@@ -57,7 +65,7 @@ final class ChatGptCredentialStore implements ChatGptSession.Storage {
     }
 
     public synchronized String hostId() throws Exception {
-        if (host.getBaseFile().exists()) return new String(read(host), StandardCharsets.UTF_8);
+        if (exists(host)) return new String(read(host), StandardCharsets.UTF_8);
         String id = "urn:uuid:" + UUID.randomUUID();
         write(host, id.getBytes(StandardCharsets.UTF_8));
         return id;
@@ -76,7 +84,7 @@ final class ChatGptCredentialStore implements ChatGptSession.Storage {
     }
 
     public synchronized JSONObject load() throws Exception {
-        if (!credentials.getBaseFile().exists()) return new JSONObject().put("accounts", new JSONArray());
+        if (!exists(credentials)) return new JSONObject().put("accounts", new JSONArray());
         byte[] bytes = read(credentials);
         if (bytes.length < 29 || bytes[0] != 1) throw new Exception("安全凭证格式不正确，请重新连接。");
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
@@ -90,6 +98,7 @@ final class ChatGptCredentialStore implements ChatGptSession.Storage {
         cipher.init(Cipher.ENCRYPT_MODE, key(true));
         cipher.updateAAD(AAD);
         byte[] encrypted = cipher.doFinal(value.toString().getBytes(StandardCharsets.UTF_8));
+        if (encrypted.length + 13 > 2 * 1024 * 1024) throw new Exception("安全凭证记录过大，请减少已保存账号。");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         output.write(1);
         output.write(cipher.getIV());
