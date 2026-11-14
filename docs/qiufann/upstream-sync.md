@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 基线 `main`：`a510f9ae68a70dead5ad344829466d3e5770f600`。
-- 定制分支：`qiufann/chatgpt-plan-android`；本轮只增加 CI 和文档。
+- 定制分支：`qiufann/chatgpt-plan-android`。第一轮增加 CI 和文档，后续已实现订阅原生桥、独立 provider/transport 和账号卡，并准备条件签名流程。具体实现与未验收项见 [订阅报告](phase-b-report.md) 和 [签名准备](signing-setup.md)。
 - `upstream` 始终指向原仓库；`main` 只做上游镜像。
 - 本地已把 `upstream` 的 push URL 设为 `DISABLED`，防止误推原作者仓库；fetch URL 保留原址。
 - 当前 `origin` 是 <https://github.com/Qiufannn/polaris-local-first.git>。初始 GitHub 建仓请求被集成以 HTTP 403 拒绝，随后秋凡本人创建 fork，现有连接已成功读取该仓库和权限，无需提供新凭证。
-- 原本的本地裸仓库保留为 `local-backup`。远端 `main` 已核对与基线一致；定制提交只推独立分支，在线 Actions 结果见第一轮回执。
+- 原本的本地裸仓库保留为 `local-backup`。远端 `main` 已核对与基线一致；定制提交只推独立分支，在线 Actions 结果按阶段保存在对应回执中。
 
 ## 已完成的 fork 接入与分支推送方式
 
@@ -41,7 +41,7 @@ git switch qiufann/chatgpt-plan-android
 git merge --no-edit main
 ```
 
-合并后按 CI 顺序验证类型、测试、Web 构建、Capacitor sync 和 Android `assembleRelease`，更新 README 的同步 SHA、时间与冲突列表，再推送定制分支。验证失败不发布手机更新。
+合并后按 CI 顺序验证类型、测试、Web 构建、Capacitor sync、Android `testReleaseUnitTest assembleRelease`，更新 README 的同步 SHA、时间与冲突列表，再推送定制分支。验证失败不发布手机更新。
 
 ## CI 和签名边界
 
@@ -51,8 +51,10 @@ Android 安装动作显式选择命令行工具 `13114758` 和 `platform-tools`�
 `baseline` 和 `android` 是独立作业：测试失败仍会显示失败，Android 作业可单独生成检查产物。
 基线作业内检查顺序执行，首个失败会使后续步骤跳过；完整本地基线以交付报告为准。
 
-本轮只执行 `assembleRelease`，保留上游 applicationId、versionCode 和 versionName；不运行 `assembleDebug`，不生成 debug keystore，不配置 signingConfig，不读取或引用 Secrets。产物名 `polaris-android-unsigned-<run>-<attempt>`，含未签名 APK、SHA256SUMS 和源提交回执，保留 14 天。
+第一轮和阶段 B 的初始构建保留上游 applicationId、versionCode / versionName，未使用 Secrets。当前 CI 仍保持同 applicationId，不运行 `assembleDebug` 或生成 debug keystore；versionCode 已改为 workflow run_number，versionName 为 `1.0-qiufann.<run_number>`。unsigned 产物含 APK、校验值、源提交和原生测试 XML，保留 14 天。
 
-**未签名 APK 不能直接安装**。后续取得秋凡确认后，再单独规划稳定签名、递增 versionCode、手机安装和同签名覆盖升级验证。本轮没有完成阶段 A 的手机验收；不得把未签名构建说成可安装发布。
+目前另有条件签名作业：只在本人仓库定制分支 push、两个核心检查作业成功且四项专用 Secrets 完整时，用已测试产物签名；无配置时明确跳过实际签名，不自动生成密钥。仓库管理 API 权限及手机工具连接仍阻止实际配置，尚无签名成功记录。详见签名准备回执。
 
-潜在同步冲突：README.md；同名 workflow 若上游后来添加；`docs/qiufann/` 同名文件。当前没有修改业务、数据格式或原生运行时代码。
+**未签名 APK 不能直接安装**。稳定签名保管、手机安装和同签名覆盖升级验证仍未完成；不得把未签名构建或缺配置时的绿色 CI 说成可安装发布。
+
+潜在同步冲突：README、定制 workflow/docs、MainActivity、app/build.gradle、provider 注册/归一化/能力与传输、账号设置 UI。完整改动文件见阶段 B 回执；聊天、角色、记忆和主题的数据格式未迁移。
