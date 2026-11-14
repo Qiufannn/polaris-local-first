@@ -23,7 +23,7 @@ git push -u origin main
 git push -u origin qiufann/chatgpt-plan-android
 ```
 
-本人 fork 的默认分支设为 `qiufann/chatgpt-plan-android`，`main` 仍保持纯上游镜像。GitHub 的手动 workflow_dispatch 要求 workflow 文件在默认分支；若仍以纯镜像 main 为默认分支，先用定制分支 push 触发，不宣称网页手动触发已可用。
+当前本人 fork 的默认分支仍为 `main`；修改默认分支的 API 被现有集成以 HTTP 403 拒绝，未强行改变。GitHub 的手动 workflow_dispatch 要求 workflow 文件在默认分支，因此当前使用已验证可触发的定制分支 push；不要宣称网页手动运行按钮已可用。若日后本人把默认分支设为 `qiufann/chatgpt-plan-android`，`main` 仍可保持纯上游镜像，并可启用网页手动运行。
 
 无须向会话发送 token 或密码。不要重建已有 fork；重启任务时先核对远端分支和本地差异。
 
@@ -47,6 +47,7 @@ git merge --no-edit main
 
 `.github/workflows/qiufann-android.yml` 提供手动、定制分支 push 和 PR 触发。
 CI 使用 npm lockfile、Node 24、JDK 21、SDK 36 / Build Tools 35.0.0。
+Android 安装动作显式选择命令行工具 `13114758` 和 `platform-tools`，避免默认安装已退役的 `tools` 包；这是第一次在线运行暴露的问题，已在 CI 配置中修正。
 `baseline` 和 `android` 是独立作业：测试失败仍会显示失败，Android 作业可单独生成检查产物。
 基线作业内检查顺序执行，首个失败会使后续步骤跳过；完整本地基线以交付报告为准。
 
