@@ -86,6 +86,7 @@ jobs:
           mkdir -p ci-artifacts
           cp android/app/build/outputs/apk/release/app-release-unsigned.apk ci-artifacts/polaris-unsigned.apk
           cp android/app/build/test-results/testReleaseUnitTest/TEST-*.xml ci-artifacts/
+          cp tools/android-signing/generate-seed.html ci-artifacts/
           printf 'source_sha=%s\nrun_id=%s\nrun_attempt=%s\nsigning=unsigned\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > ci-artifacts/build-info.txt
           printf 'artifact_name=polaris-android-unsigned-%s-%s\n' "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
           cd ci-artifacts
@@ -97,9 +98,45 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  signing-self-test:
+    name: Verify repeatable signing with public test material
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: tools/android-signing
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '13114758'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager 'build-tools;35.0.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.android.outputs.artifact_name }}
+          path: verified-apk/
+      - name: Compile pinned signing helper and verify the frozen certificate profile
+        run: bash tools/android-signing/prepare.sh
+      - name: Sign and verify a temporary APK using public fixtures only
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd verified-apk
+          sha256sum -c SHA256SUMS
+          grep -Fx "source_sha=$GITHUB_SHA" build-info.txt
+          java -cp "$RUNNER_TEMP/polaris-signing-tools/classes:$RUNNER_TEMP/polaris-signing-tools/lib/*" \
+            PersonalApkSigner self-test-apk polaris-unsigned.apk
+
   signed-android:
     name: Sign verified APK when secure storage is configured
-    needs: [baseline, android]
+    needs: [baseline, android, signing-self-test]
     if: github.repository == 'Qiufannn/polaris-local-first' && github.event_name == 'push' && github.ref == 'refs/heads/qiufann/chatgpt-plan-android'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -108,6 +145,7 @@ jobs:
         id: signing
         shell: bash
         env:
+          SEED: ${{ secrets.POLARIS_ANDROID_SIGNING_SEED }}
           KEYSTORE: ${{ secrets.POLARIS_ANDROID_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.POLARIS_ANDROID_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.POLARIS_ANDROID_KEY_ALIAS }}
@@ -118,7 +156,13 @@ jobs:
           for value in "$KEYSTORE" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
             if [[ -n "$value" ]]; then configured=$((configured + 1)); fi
           done
-          if [[ "$configured" -eq 0 ]]; then
+          if [[ -n "$SEED" && "$configured" -ne 0 ]]; then
+            echo '::error::Choose either the local random seed or the existing keystore configuration; they cannot be mixed.'
+            exit 1
+          elif [[ -n "$SEED" ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+            echo 'mode=seed' >> "$GITHUB_OUTPUT"
+          elif [[ "$configured" -eq 0 ]]; then
             echo 'ready=false' >> "$GITHUB_OUTPUT"
             echo 'Signing is not configured. Only the unsigned inspection artifact is available.' >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$configured" -ne 4 ]]; then
@@ -126,7 +170,13 @@ jobs:
             exit 1
           else
             echo 'ready=true' >> "$GITHUB_OUTPUT"
+            echo 'mode=keystore' >> "$GITHUB_OUTPUT"
           fi
+      - uses: actions/checkout@v4
+        if: steps.signing.outputs.ready == 'true'
+        with:
+          persist-credentials: false
+          sparse-checkout: tools/android-signing
       - uses: actions/setup-java@v4
         if: steps.signing.outputs.ready == 'true'
         with:
@@ -147,7 +197,7 @@ jobs:
           name: ${{ needs.android.outputs.artifact_name }}
           path: verified-apk/
       - name: Verify source and sign the already tested APK
-        if: steps.signing.outputs.ready == 'true'
+        if: steps.signing.outputs.mode == 'keystore'
         shell: bash
         env:
           KEYSTORE: ${{ secrets.POLARIS_ANDROID_KEYSTORE_BASE64 }}
@@ -171,12 +221,44 @@ jobs:
             --ks-pass env:POLARIS_ANDROID_STORE_PASSWORD \
             --key-pass env:POLARIS_ANDROID_KEY_PASSWORD \
             --out ../signed-apk/polaris.apk polaris-unsigned.apk
+      - name: Compile the recovery-seed signing helper
+        if: steps.signing.outputs.mode == 'seed'
+        run: bash tools/android-signing/prepare.sh
+      - name: Recover the private signer only inside this runner
+        if: steps.signing.outputs.mode == 'seed'
+        shell: bash
+        env:
+          POLARIS_ANDROID_SIGNING_SEED: ${{ secrets.POLARIS_ANDROID_SIGNING_SEED }}
+        run: |
+          set -euo pipefail
+          umask 077
+          cd verified-apk
+          sha256sum -c SHA256SUMS
+          grep -Fx "source_sha=$GITHUB_SHA" build-info.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" build-info.txt
+          mkdir -p ../signed-apk
+          java -cp "$RUNNER_TEMP/polaris-signing-tools/classes:$RUNNER_TEMP/polaris-signing-tools/lib/*" \
+            PersonalApkSigner sign polaris-unsigned.apk ../signed-apk/polaris.apk \
+            ../tools/android-signing/expected-certificate.sha256
+      - name: Verify the signed certificate and collect the public receipt
+        if: steps.signing.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs \
-            ../signed-apk/polaris.apk > ../signed-apk/signing-certificate.txt
-          cp build-info.txt ../signed-apk/unsigned-build-info.txt
+            signed-apk/polaris.apk > signed-apk/signing-certificate.txt
+          if [[ -f tools/android-signing/expected-certificate.sha256 ]]; then
+            actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' signed-apk/signing-certificate.txt)
+            expected=$(tr -d '[:space:]' < tools/android-signing/expected-certificate.sha256)
+            if [[ "$actual" != "$expected" ]]; then
+              echo '::error::Signing certificate changed; refusing to publish an incompatible update.'
+              exit 1
+            fi
+          fi
+          cp verified-apk/build-info.txt signed-apk/unsigned-build-info.txt
           printf 'source_sha=%s\nrun_id=%s\nsigning=personal-keystore\nversion_code=%s\n' \
-            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" > ../signed-apk/build-info.txt
-          cd ../signed-apk
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" > signed-apk/build-info.txt
+          cd signed-apk
           sha256sum polaris.apk > SHA256SUMS
       - uses: actions/upload-artifact@v4
         if: steps.signing.outputs.ready == 'true'

@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline'">
+<title>本机签名随机值</title>
+<style>button,textarea{font:20px sans-serif;width:95%;margin:8px}textarea{height:120px}</style>
+<button type="button" onclick="let t=document.querySelector('textarea');t.value=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');this.disabled=true;t.focus();t.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}this.textContent=ok?'已复制':'请长按随机值复制'">生成并复制</button>
+<textarea readonly aria-label="本机随机值"></textarea>
+<p>只存GitHub Secret，不发聊天。页面不联网、不上传生成值。</p>
