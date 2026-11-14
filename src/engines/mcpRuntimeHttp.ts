@@ -7,6 +7,7 @@
 // that legacy transport lives separately.
 
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { mcpSiteAuth } from '../native/mcpSiteAuth';
 import {
   createRpcId,
   ensureSuccessMessage,
@@ -82,6 +83,14 @@ async function requestMcpHttp(
   init: RequestInit,
   options: McpTransportOptions
 ) {
+  if (options.server.authKind === 'sites-memory-oauth') {
+    if (options.server.transport !== 'streamable-http' || url !== options.server.url) {
+      throw new Error('小家授权连接仅支持已保存资源的 Streamable HTTP，不允许改写目标地址。');
+    }
+    const result = await mcpSiteAuth.request({ serverId: options.server.id, url,
+      method: init.method ?? 'POST', body: typeof init.body === 'string' ? init.body : '' });
+    return new Response(result.data || null, { status: result.status, headers: { 'Content-Type': 'application/json' } });
+  }
   if (!shouldUseNativeMcpHttp(url, options)) {
     const fetchImpl = getFetchImpl(options.fetchImpl);
     return await fetchImpl(url, init);

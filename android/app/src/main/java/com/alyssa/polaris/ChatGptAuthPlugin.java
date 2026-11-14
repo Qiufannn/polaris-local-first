@@ -32,11 +32,11 @@ public class ChatGptAuthPlugin extends Plugin {
         return "ChatGPT 连接失败，请检查网络后重试；本地聊天仍保留。";
     }
 
-    private ChatGptSession session() { return ChatGptSession.get(getContext()); }
+    protected ChatGptSession session(PluginCall call) throws Exception { return ChatGptSession.get(getContext()); }
 
     @PluginMethod public void status(PluginCall call) {
         executor.execute(() -> {
-            try { call.resolve(JSObject.fromJSONObject(session().status())); }
+            try { call.resolve(JSObject.fromJSONObject(session(call).status())); }
             catch (Exception error) { call.reject(safeMessage(error)); }
         });
     }
@@ -50,7 +50,7 @@ public class ChatGptAuthPlugin extends Plugin {
         }
         executor.execute(() -> {
             try {
-                ChatGptSession session = session();
+                ChatGptSession session = session(call);
                 long generation = session.generation();
                 JSONObject saved = session.saved(call.getString("accountRef"));
                 String client = saved == null ? ChatGptOAuth.DYNAMIC_CLIENT : saved.getString("client_id");
@@ -61,7 +61,7 @@ public class ChatGptAuthPlugin extends Plugin {
                 Map<String, String> fields = new LinkedHashMap<>();
                 fields.put("client_id", client); fields.put("ext_agent_host_id", session.hostId());
                 fields.put("response_type", "code"); fields.put("redirect_uri", redirect);
-                fields.put("scope", ChatGptOAuth.SCOPES); fields.put("resource", ChatGptOAuth.RESOURCE);
+                fields.put("scope", session.scopes()); fields.put("resource", session.resource());
                 fields.put("state", state); fields.put("nonce", nonce);
                 fields.put("code_challenge_method", "S256"); fields.put("code_challenge", ChatGptOAuth.challenge(verifier));
                 if (saved == null) fields.put("agent_name_hint", "Polaris Android");
@@ -105,15 +105,15 @@ public class ChatGptAuthPlugin extends Plugin {
         cancelAttempt();
         executor.execute(() -> {
             try {
-                session().select(call.getString("accountRef", ""));
-                call.resolve(JSObject.fromJSONObject(session().status()));
+                session(call).select(call.getString("accountRef", ""));
+                call.resolve(JSObject.fromJSONObject(session(call).status()));
             } catch (Exception error) { call.reject(safeMessage(error)); }
         });
     }
 
     @PluginMethod public void models(PluginCall call) {
         executor.execute(() -> {
-            try { call.resolve(new JSObject().put("models", new JSArray(session().models().toString()))); }
+            try { call.resolve(new JSObject().put("models", new JSArray(session(call).models().toString()))); }
             catch (Exception error) { call.reject(safeMessage(error)); }
         });
     }
@@ -122,7 +122,7 @@ public class ChatGptAuthPlugin extends Plugin {
         cancelAttempt();
         executor.execute(() -> {
             try {
-                boolean revoked = session().disconnect();
+                boolean revoked = session(call).disconnect();
                 call.resolve(new JSObject().put("revocationConfirmed", revoked));
             } catch (Exception error) { call.reject(safeMessage(error)); }
         });
@@ -131,7 +131,7 @@ public class ChatGptAuthPlugin extends Plugin {
     @PluginMethod public void resetLocalConnections(PluginCall call) {
         cancelAttempt();
         executor.execute(() -> {
-            try { session().reset(); call.resolve(JSObject.fromJSONObject(session().status())); }
+            try { session(call).reset(); call.resolve(JSObject.fromJSONObject(session(call).status())); }
             catch (Exception error) { call.reject(safeMessage(error)); }
         });
     }

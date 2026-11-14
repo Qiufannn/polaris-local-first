@@ -28,6 +28,8 @@ final class ChatGptSession {
     private final Storage store;
     private final Transport transport;
     private long generation;
+    private final String resource;
+    private final String requiredScope;
 
     static synchronized ChatGptSession get(Context context) {
         if (instance == null) instance = new ChatGptSession(context.getApplicationContext());
@@ -35,7 +37,19 @@ final class ChatGptSession {
     }
 
     private ChatGptSession(Context context) { this(new ChatGptCredentialStore(context), ChatGptSession::request); }
-    ChatGptSession(Storage store, Transport transport) { this.store = store; this.transport = transport; }
+    ChatGptSession(Storage store, Transport transport) { this(store, transport, ChatGptOAuth.RESOURCE, ChatGptOAuth.PLAN_SCOPE); }
+    ChatGptSession(Storage store, Transport transport, String resource, String requiredScope) {
+        this.store = store; this.transport = transport; this.resource = resource; this.requiredScope = requiredScope;
+    }
+    String resource() { return resource; }
+    String scopes() { return ChatGptOAuth.PLAN_SCOPE.equals(requiredScope) ? ChatGptOAuth.SCOPES : "openid profile email offline_access resource.invoke"; }
+    private boolean granted(String scope) {
+        for (String part : scope.trim().split("\\s+")) if (requiredScope.equals(part)) return true;
+        return false;
+    }
+    private void requireResource(JSONObject record) throws Exception {
+        if (!ChatGptOAuth.same(resource, record.optString("resource", ChatGptOAuth.RESOURCE))) throw new Exception("授权资源不匹配，请重新连接该服务。");
+    }
 
     static final class HttpResult {
         final int status;
@@ -92,7 +106,7 @@ final class ChatGptSession {
         JSONArray accounts = database.getJSONArray("accounts");
         for (int i = 0; i < accounts.length(); i++) {
             JSONObject item = accounts.getJSONObject(i);
-            if (ref.equals(item.optString("ref"))) return item;
+            if (ref.equals(item.optString("ref"))) { requireResource(item); return item; }
         }
         throw new Exception("请选择或重新登录 ChatGPT 账号。");
     }
@@ -108,11 +122,13 @@ final class ChatGptSession {
         JSONArray summaries = new JSONArray();
         for (int i = 0; i < accounts.length(); i++) {
             JSONObject record = accounts.getJSONObject(i);
+            requireResource(record);
             summaries.put(new JSONObject().put("ref", record.getString("ref"))
                 .put("email", record.optString("email")).put("subject", record.getString("subject"))
                 // The client registration is bound to the selected workspace. Do not decode opaque access metadata.
                 .put("registration", record.getString("client_id"))
                 .put("connected", !record.optString("refresh_token").isEmpty())
+                .put("scopeGranted", granted(record.optString("scope")))
                 .put("planGranted", ChatGptOAuth.hasPlanScope(record.optString("scope"))));
         }
         return new JSONObject().put("accounts", summaries).put("activeRef", database.optString("active"));
@@ -131,6 +147,12 @@ final class ChatGptSession {
             || response.optString("refresh_token").isEmpty() || response.optLong("expires_in") <= 0) {
             throw new Exception("授权凭证不完整，请重新登录。");
         }
+        if (response.has("resource") && !ChatGptOAuth.same(resource, response.optString("resource"))) {
+            throw new Exception("授权服务返回了其他资源的凭证，未保存连接。");
+        }
+        if (!ChatGptOAuth.RESOURCE.equals(resource) && ChatGptOAuth.hasPlanScope(response.optString("scope"))) {
+            throw new Exception("授权返回了模型订阅权限，未将该凭证用于记忆服务。");
+        }
         JSONObject next = previous == null ? new JSONObject() : new JSONObject(previous.toString());
         String identity = response.optString("id_token");
         if (previous == null || !identity.isEmpty()) {
@@ -144,7 +166,7 @@ final class ChatGptSession {
             next.put("email", claims.getStringClaim("email") == null ? "" : claims.getStringClaim("email"));
             next.put("id_token", identity);
         }
-        next.put("client_id", client).put("nonce", nonce);
+        next.put("client_id", client).put("nonce", nonce).put("resource", resource);
         next.put("access_token", response.getString("access_token"));
         next.put("refresh_token", response.getString("refresh_token"));
         next.put("expires_at", System.currentTimeMillis() + Math.min(response.getLong("expires_in"), 86400) * 1000L);
@@ -158,7 +180,7 @@ final class ChatGptSession {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("grant_type", "authorization_code"); fields.put("client_id", client);
         fields.put("code", code); fields.put("code_verifier", verifier);
-        fields.put("redirect_uri", redirect); fields.put("resource", ChatGptOAuth.RESOURCE);
+        fields.put("redirect_uri", redirect); fields.put("resource", resource);
         HttpResult result = transport.request(ChatGptOAuth.TOKEN, "POST", ChatGptOAuth.form(fields), null);
         if (result.status != 200) throw new Exception("授权码兑换失败，请重新发起登录（不要重复使用旧回调）。");
         return tokenRecord(new JSONObject(result.body), client, nonce, previous, false);
@@ -166,6 +188,7 @@ final class ChatGptSession {
 
     synchronized void install(JSONObject record, long expectedGeneration) throws Exception {
         if (generation != expectedGeneration) throw new Exception("登录期间账号状态已改变，请重新发起。");
+        requireResource(record);
         JSONObject database = store.load();
         JSONArray before = database.getJSONArray("accounts");
         JSONArray after = new JSONArray();
@@ -184,7 +207,7 @@ final class ChatGptSession {
     synchronized String access(boolean force, String rejectedAccess) throws Exception {
         JSONObject database = store.load();
         JSONObject record = account(database, database.optString("active"));
-        if (!ChatGptOAuth.hasPlanScope(record.optString("scope"))) throw new Exception("尚未授予 ChatGPT 订阅使用权限，请重新登录授权。");
+        if (!granted(record.optString("scope"))) throw new Exception("尚未授予当前资源的使用权限，请重新登录授权。");
         if (record.optString("refresh_token").isEmpty()) throw new Exception("ChatGPT 连接已断开，请重新登录。");
         String access = record.optString("access_token");
         long now = System.currentTimeMillis();
@@ -196,7 +219,7 @@ final class ChatGptSession {
         }
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("grant_type", "refresh_token"); fields.put("client_id", record.getString("client_id"));
-        fields.put("refresh_token", record.getString("refresh_token")); fields.put("resource", ChatGptOAuth.RESOURCE);
+        fields.put("refresh_token", record.getString("refresh_token")); fields.put("resource", resource);
         HttpResult result = transport.request(ChatGptOAuth.TOKEN, "POST", ChatGptOAuth.form(fields), null);
         if (result.status != 200) {
             if (result.status == 400 || result.status == 401 || result.status == 403) {
@@ -209,11 +232,12 @@ final class ChatGptSession {
         JSONArray accounts = database.getJSONArray("accounts");
         for (int i = 0; i < accounts.length(); i++) if (record.getString("ref").equals(accounts.getJSONObject(i).getString("ref"))) accounts.put(i, next);
         store.save(database);
-        if (!ChatGptOAuth.hasPlanScope(next.optString("scope"))) throw new Exception("订阅使用权限已改变，请重新登录授权。");
+        if (!granted(next.optString("scope"))) throw new Exception("授权使用权限已改变，请重新登录授权。");
         return next.getString("access_token");
     }
 
     synchronized JSONArray models() throws Exception {
+        if (!ChatGptOAuth.RESOURCE.equals(resource)) throw new Exception("授权资源不是模型服务。");
         String credential = access(false, null);
         HttpResult result = transport.request(ChatGptOAuth.RESOURCE + "/models", "GET", null, credential);
         if (result.status == 401) result = transport.request(ChatGptOAuth.RESOURCE + "/models", "GET", null, access(true, credential));

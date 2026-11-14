@@ -101,4 +101,46 @@ public class ChatGptSessionTest {
         assertEquals("unit-host", session.hostId());
         assertThrows(Exception.class, () -> session.install(oldRecord, before));
     }
+
+    @Test public void mcpProfileCannotUseASubscriptionCredentialRecord() throws Exception {
+        MemoryStorage store = new MemoryStorage();
+        ChatGptSession session = new ChatGptSession(store, (u,m,b,a) -> { fail("No credential may leave a mismatched resource"); return null; }, "https://unit.chatgpt.site/mcp", "resource.invoke");
+        assertThrows(Exception.class, () -> session.access(false, null));
+        assertThrows(Exception.class, () -> session.models());
+    }
+    @Test public void mcpRefreshUsesOnlyItsOwnResourceAndScope() throws Exception {
+        String resource = "https://unit.chatgpt.site/mcp";
+        MemoryStorage store = new MemoryStorage();
+        store.value.getJSONArray("accounts").getJSONObject(0).put("resource", resource).put("scope", "openid resource.invoke");
+        ChatGptSession session = new ChatGptSession(store, (u,m,b,a) -> {
+            assertTrue(b.contains("resource=https%3A%2F%2Funit.chatgpt.site%2Fmcp"));
+            assertFalse(b.contains("api.openai.com"));
+            return refreshed("openid resource.invoke");
+        }, resource, "resource.invoke");
+        assertEquals("replacement-access-placeholder", session.access(false, null));
+        JSONObject summary = session.status().getJSONArray("accounts").getJSONObject(0);
+        assertTrue(summary.getBoolean("scopeGranted")); assertFalse(summary.getBoolean("planGranted"));
+        assertFalse(session.status().toString().contains("placeholder"));
+    }
+    @Test public void missingMcpScopeDoesNotRefreshOrSendCredentials() throws Exception {
+        MemoryStorage store = new MemoryStorage();
+        store.value.getJSONArray("accounts").getJSONObject(0).put("resource", "https://unit.chatgpt.site/mcp").put("scope", "openid email");
+        ChatGptSession session = new ChatGptSession(store, (u,m,b,a) -> { fail("No request without resource scope"); return null; }, "https://unit.chatgpt.site/mcp", "resource.invoke");
+        assertThrows(Exception.class, () -> session.access(false, null));
+    }
+    @Test public void mcpRejectsUnexpectedResourceOrModelGrantsBeforeReplacingItsRecord() throws Exception {
+        String resource = "https://unit.chatgpt.site/mcp";
+        for (boolean wrongResource : new boolean[] {true, false}) {
+            MemoryStorage store = new MemoryStorage();
+            store.value.getJSONArray("accounts").getJSONObject(0).put("resource", resource).put("scope", "openid resource.invoke");
+            String before = store.value.toString();
+            ChatGptSession session = new ChatGptSession(store, (u,m,b,a) -> {
+                JSONObject response = new JSONObject(refreshed(wrongResource ? "openid resource.invoke" : ChatGptOAuth.SCOPES).body);
+                if (wrongResource) response.put("resource", ChatGptOAuth.RESOURCE);
+                return new ChatGptSession.HttpResult(200, response.toString());
+            }, resource, "resource.invoke");
+            assertThrows(Exception.class, () -> session.access(false, null));
+            assertEquals(before, store.value.toString());
+        }
+    }
 }

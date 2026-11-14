@@ -93,6 +93,8 @@ export interface McpServerConfig {
   description: string;
   transport: McpServerTransport;
   url: string;
+  /** Credential-free marker; OAuth secrets live only in the native per-resource vault. */
+  authKind?: 'sites-memory-oauth';
   headers: McpServerHeader[];
   tools?: McpServerToolConfig[];
   isActive: boolean;

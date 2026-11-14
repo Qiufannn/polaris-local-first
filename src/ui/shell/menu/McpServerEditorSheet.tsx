@@ -4,6 +4,7 @@ import { resolveMcpToolCatalog, type McpResolvedToolDefinition } from '../../../
 import { useI18n } from '../../../i18n/useI18n';
 import type { McpServerConfig, McpServerHeader, McpServerToolConfig, McpServerTransport } from '../../../types/domain';
 import { Icon } from '../../Icon';
+import { McpSiteConnection } from './McpSiteConnection';
 
 type McpServerEditorSheetProps = {
   open: boolean;
@@ -54,6 +55,8 @@ export function McpServerEditorSheet({
   onDelete
 }: McpServerEditorSheetProps) {
   const { t } = useI18n();
+  const [authKind, setAuthKind] = useState<McpServerConfig['authKind']>();
+  const [oauthReady, setOauthReady] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [transport, setTransport] = useState<McpServerTransport>('streamable-http');
@@ -65,6 +68,8 @@ export function McpServerEditorSheet({
 
   useEffect(() => {
     if (!open) return;
+    setAuthKind(server?.authKind);
+    setOauthReady(false);
     setName(server?.name ?? '');
     setDescription(server?.description ?? '');
     setTransport(server?.transport ?? 'streamable-http');
@@ -107,7 +112,8 @@ export function McpServerEditorSheet({
       description: description.trim(),
       transport,
       url: trimmedUrl,
-      headers: normalizedHeaders(),
+      headers: authKind ? [] : normalizedHeaders(),
+      ...(authKind ? { authKind } : {}),
       tools,
       isActive: true
     };
@@ -156,13 +162,15 @@ export function McpServerEditorSheet({
     }
 
     onSave({
+      authKind,
       name: trimmedName,
       description: description.trim(),
       transport,
       url: trimmedUrl,
-      headers: normalizedHeaders(),
+      headers: authKind ? [] : normalizedHeaders(),
+      ...(authKind ? { authKind } : {}),
       tools,
-      isActive
+      isActive: authKind ? isActive && oauthReady : isActive
     });
     onClose();
   };
@@ -226,6 +234,7 @@ export function McpServerEditorSheet({
               <button
                 type="button"
                 className={transport === 'sse' ? 'active' : ''}
+                disabled={Boolean(authKind)}
                 onClick={() => setTransport('sse')}
               >
                 SSE
@@ -241,6 +250,22 @@ export function McpServerEditorSheet({
               placeholder="http://localhost:3000"
             />
           </label>
+
+          <label>
+            连接方式
+            <select value={authKind ?? ''} onChange={event => {
+              const next = event.target.value === 'sites-memory-oauth' ? 'sites-memory-oauth' as const : undefined;
+              setAuthKind(next); setOauthReady(false); setTestState({ status: 'idle' });
+              if (next) { setTransport('streamable-http'); setTools([]); }
+            }}>
+              <option value="">普通 MCP</option>
+              <option value="sites-memory-oauth">小家记忆（独立登录，只读）</option>
+            </select>
+          </label>
+          {authKind && <McpSiteConnection
+            address={server?.authKind === authKind && server.url.trim() === url.trim() ? { serverId: server.id, url: server.url.trim() } : null}
+            onReady={setOauthReady} onEnable={() => setIsActive(true)}
+          />}
 
           <div className={`mcp-test-panel ${testState.status !== 'idle' ? `mcp-test-panel--${testState.status}` : ''}`}>
             <button
@@ -312,7 +337,7 @@ export function McpServerEditorSheet({
             )}
           </div>
 
-          <div className="mcp-header-editor">
+          {!authKind && <div className="mcp-header-editor">
             <div className="mcp-header-editor-head">
               <span>{t('settings.mcp.headersSection')}</span>
               <button
@@ -359,7 +384,7 @@ export function McpServerEditorSheet({
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
 
         <div className="mcp-inline-sheet-actions">

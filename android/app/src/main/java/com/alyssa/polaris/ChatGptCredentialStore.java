@@ -21,16 +21,22 @@ import org.json.JSONObject;
 
 /** Never uses the normal persistence/backup pipeline; keys are generated only on-device after login. */
 final class ChatGptCredentialStore implements ChatGptSession.Storage {
-    private static final String ALIAS = "polaris.chatgpt.credentials.v1";
-    private static final byte[] AAD = "polaris-chatgpt-v1".getBytes(StandardCharsets.UTF_8);
+    private final String alias;
+    private final byte[] aad;
     private final AtomicFile credentials;
     private final AtomicFile host;
 
-    ChatGptCredentialStore(Context context) {
-        File directory = new File(context.getNoBackupFilesDir(), "chatgpt");
+    ChatGptCredentialStore(Context context) { this(context, null); }
+    ChatGptCredentialStore(Context context, String mcpProfileHash) {
+        if (mcpProfileHash != null && !mcpProfileHash.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("Invalid profile scope");
+        alias = mcpProfileHash == null ? "polaris.chatgpt.credentials.v1" : "polaris.mcp." + mcpProfileHash;
+        aad = (mcpProfileHash == null ? "polaris-chatgpt-v1" : "polaris-mcp-v1|" + mcpProfileHash).getBytes(StandardCharsets.UTF_8);
+        File common = new File(context.getNoBackupFilesDir(), "chatgpt");
+        common.mkdirs();
+        File directory = mcpProfileHash == null ? common : new File(context.getNoBackupFilesDir(), "mcp/" + mcpProfileHash);
         directory.mkdirs();
         credentials = new AtomicFile(new File(directory, "accounts.enc"));
-        host = new AtomicFile(new File(directory, "host-id"));
+        host = new AtomicFile(new File(common, "host-id"));
     }
 
     private static byte[] read(AtomicFile file) throws Exception {
@@ -74,10 +80,10 @@ final class ChatGptCredentialStore implements ChatGptSession.Storage {
     private SecretKey key(boolean create) throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
-        if (store.containsAlias(ALIAS)) return (SecretKey) store.getKey(ALIAS, null);
+        if (store.containsAlias(alias)) return (SecretKey) store.getKey(alias, null);
         if (!create) throw new Exception("安全凭证无法解密，请重新连接账号。");
         KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-        generator.init(new KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+        generator.init(new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setRandomizedEncryptionRequired(true).build());
         return generator.generateKey();
@@ -89,14 +95,14 @@ final class ChatGptCredentialStore implements ChatGptSession.Storage {
         if (bytes.length < 29 || bytes[0] != 1) throw new Exception("安全凭证格式不正确，请重新连接。");
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.DECRYPT_MODE, key(false), new GCMParameterSpec(128, bytes, 1, 12));
-        cipher.updateAAD(AAD);
+        cipher.updateAAD(aad);
         return new JSONObject(new String(cipher.doFinal(bytes, 13, bytes.length - 13), StandardCharsets.UTF_8));
     }
 
     public synchronized void save(JSONObject value) throws Exception {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, key(true));
-        cipher.updateAAD(AAD);
+        cipher.updateAAD(aad);
         byte[] encrypted = cipher.doFinal(value.toString().getBytes(StandardCharsets.UTF_8));
         if (encrypted.length + 13 > 2 * 1024 * 1024) throw new Exception("安全凭证记录过大，请减少已保存账号。");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -110,7 +116,7 @@ final class ChatGptCredentialStore implements ChatGptSession.Storage {
         credentials.delete();
         KeyStore keys = KeyStore.getInstance("AndroidKeyStore");
         keys.load(null);
-        if (keys.containsAlias(ALIAS)) keys.deleteEntry(ALIAS);
+        if (keys.containsAlias(alias)) keys.deleteEntry(alias);
         // Keep this installation's non-secret host ID; reset never touches Polaris chats.
     }
 }

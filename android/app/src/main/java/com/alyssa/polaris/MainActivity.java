@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NativeProviderHttpPlugin.class);
         registerPlugin(ChatGptAuthPlugin.class);
         registerPlugin(ChatGptPlanHttpPlugin.class);
+        registerPlugin(McpSiteAuthPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -211,6 +211,7 @@ async function openLegacySseConnection(options: McpTransportOptions): Promise<Le
 }
 
 export async function initializeLegacySseConnection(options: McpTransportOptions) {
+  if (options.server.authKind === 'sites-memory-oauth') throw new Error('小家授权连接仅支持 Streamable HTTP，不降级为旧式 SSE。');
   const connection = await openLegacySseConnection(options);
   try {
     const initializeResponse = ensureSuccessMessage(

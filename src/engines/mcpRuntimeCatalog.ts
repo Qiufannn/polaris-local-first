@@ -36,6 +36,7 @@ type ToolsListResult = {
 };
 
 export type McpResolvedToolDefinition = {
+  authKind?: McpServerConfig['authKind'];
   schemaName: string;
   serverId: string;
   serverName: string;
@@ -132,6 +133,7 @@ function normalizeDiscoveredTools(
       return {
         schemaName: buildMcpSchemaToolName(server, toolName),
         serverId: server.id,
+        ...(server.authKind ? { authKind: server.authKind } : {}),
         serverName: server.name,
         serverHandle: buildMcpHandle(server),
         transport: server.transport,
@@ -302,6 +304,7 @@ function buildMcpCatalogCacheKey(server: McpServerConfig) {
     id: server.id,
     handle: server.handle,
     transport: server.transport,
+    authKind: server.authKind,
     url: server.url,
     headers: server.headers.map((header) => [header.key, header.value])
   });
@@ -421,6 +424,7 @@ export async function invokeMcpTool(args: {
     description: '',
     transport: args.tool.transport,
     url: args.tool.url,
+    ...(args.tool.authKind ? { authKind: args.tool.authKind } : {}),
     headers: args.headers ?? [],
     tools: [],
     isActive: true
