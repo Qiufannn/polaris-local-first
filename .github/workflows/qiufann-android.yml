@@ -46,6 +46,8 @@ jobs:
     timeout-minutes: 30
     env:
       POLARIS_ANDROID_VERSION_CODE: ${{ github.run_number }}
+    outputs:
+      artifact_name: ${{ steps.package.outputs.artifact_name }}
     # Independent of baseline so failures remain visible while an APK can be inspected.
     steps:
       - uses: actions/checkout@v4
@@ -77,6 +79,7 @@ jobs:
         working-directory: android
         run: ./gradlew --no-daemon --console=plain assembleRelease
       - name: Collect unsigned APK and source receipt
+        id: package
         shell: bash
         run: |
           set -euo pipefail
@@ -84,11 +87,12 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release-unsigned.apk ci-artifacts/polaris-unsigned.apk
           cp android/app/build/test-results/testReleaseUnitTest/TEST-*.xml ci-artifacts/
           printf 'source_sha=%s\nrun_id=%s\nrun_attempt=%s\nsigning=unsigned\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > ci-artifacts/build-info.txt
+          printf 'artifact_name=polaris-android-unsigned-%s-%s\n' "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
           cd ci-artifacts
           sha256sum polaris-unsigned.apk > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: polaris-android-unsigned-${{ github.run_number }}-${{ github.run_attempt }}
+          name: ${{ steps.package.outputs.artifact_name }}
           path: ci-artifacts/
           if-no-files-found: error
           retention-days: 14
@@ -140,7 +144,7 @@ jobs:
       - uses: actions/download-artifact@v4
         if: steps.signing.outputs.ready == 'true'
         with:
-          name: polaris-android-unsigned-${{ github.run_number }}-${{ github.run_attempt }}
+          name: ${{ needs.android.outputs.artifact_name }}
           path: verified-apk/
       - name: Verify source and sign the already tested APK
         if: steps.signing.outputs.ready == 'true'
@@ -163,6 +167,7 @@ jobs:
           mkdir -p ../signed-apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
             --ks "$signing_file" --ks-key-alias "$KEY_ALIAS" \
+            --v4-signing-enabled false \
             --ks-pass env:POLARIS_ANDROID_STORE_PASSWORD \
             --key-pass env:POLARIS_ANDROID_KEY_PASSWORD \
             --out ../signed-apk/polaris.apk polaris-unsigned.apk

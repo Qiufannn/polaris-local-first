@@ -9,6 +9,7 @@
 3. 新签名作业只在本人仓库的定制分支 push 且两个检查作业成功后执行；PR 不读取签名材料。
 4. 四个签名 Secrets 全空时明确报告“未配置”，只保留 unsigned 产物；部分缺失时失败。它不会自动生成或替换密钥。
 5. 配置完整后，签名作业下载同一 run 的已测试 unsigned artifact，检查 APK SHA256、source_sha、run_id，再用稳定 keystore 签名，不重建应用。
+   产物名从成功的 Android 作业输出取得，避免仅重试签名作业时误找不存在的新 attempt 产物；禁用额外的 v4 idsig 附件，手机只需安装 APK。
 6. 密钥只临时解码到 GitHub runner 的受限临时文件，密码通过进程环境变量交给 apksigner；退出即清理。密钥不上传为 artifact，不提交 Git，不出现在命令参数或日志里。
 7. 签名产物只包含 APK、校验值、源提交回执和公开证书信息，名称 `polaris-android-signed-<run>-<attempt>`。必须通过 apksigner verify；配置完成前不能宣称这条分支已实际跑通。
 
