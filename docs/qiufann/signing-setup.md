@@ -24,6 +24,9 @@
 
 ## 当前实际阻挡
 
+- 浏览器分工已由秋凡明确纠正：GitHub 与 Secrets 设置在 **Via（mark.via）**，聊天会话在 **Edge（com.microsoft.emmx）**。后续不得把 GitHub 登录页打开到 Edge；需要秋凡接话或本人验证时返回当前聊天所用 Edge，无法确认返回成功时须明说。
+- 本次已用按名称筛选确认 Via 安装，并收到启动 mark.via 成功的返回；之后整屏读取再次 Internal error，后续目标节点查找和返回 Edge 的操作均返回 Session terminated。尚未读到 Via 中的 GitHub 设置内容，未点击或填写 Secrets。
+- 已请求一次恢复连接，下一次优先只查找 Via 中的目标按钮，避免请求整个浏览器页面；保留 Privacy Mode。连接不可用时不盲点、不更改安全设置，也不把“App 显示连接”当作工具会话可用的证据。
 - GitHub 连接能推送代码和运行 CI，但仓库 Actions Secrets 的加密公钥接口返回 HTTP 403，无法由现有 API 连接安全配置 Secrets。
 - 秋凡已明确同意操作手机里的 GitHub 设置。手机工具两次读取屏幕及一次查询 GitHub App 均返回 MCP `-32603 Internal error`；没有读取到屏幕，也没有点击或修改手机设置。
 - 已请秋凡打开手机连接服务、确认在线并保持解锁；这是恢复连接，**不需要再次授权手机操作**。
