@@ -44,6 +44,8 @@ jobs:
     name: Build unsigned release APK (no signing keys)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      POLARIS_ANDROID_VERSION_CODE: ${{ github.run_number }}
     # Independent of baseline so failures remain visible while an APK can be inspected.
     steps:
       - uses: actions/checkout@v4
@@ -88,5 +90,93 @@ jobs:
         with:
           name: polaris-android-unsigned-${{ github.run_number }}-${{ github.run_attempt }}
           path: ci-artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  signed-android:
+    name: Sign verified APK when secure storage is configured
+    needs: [baseline, android]
+    if: github.repository == 'Qiufannn/polaris-local-first' && github.event_name == 'push' && github.ref == 'refs/heads/qiufann/chatgpt-plan-android'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check signing configuration without exposing values
+        id: signing
+        shell: bash
+        env:
+          KEYSTORE: ${{ secrets.POLARIS_ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.POLARIS_ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.POLARIS_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.POLARIS_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          configured=0
+          for value in "$KEYSTORE" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
+            if [[ -n "$value" ]]; then configured=$((configured + 1)); fi
+          done
+          if [[ "$configured" -eq 0 ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'Signing is not configured. Only the unsigned inspection artifact is available.' >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$configured" -ne 4 ]]; then
+            echo '::error::Signing configuration is incomplete. No key was generated or replaced.'
+            exit 1
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-java@v4
+        if: steps.signing.outputs.ready == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        if: steps.signing.outputs.ready == 'true'
+        with:
+          cmdline-tools-version: '13114758'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install signing and inspection tools
+        if: steps.signing.outputs.ready == 'true'
+        run: sdkmanager 'build-tools;35.0.0'
+      - uses: actions/download-artifact@v4
+        if: steps.signing.outputs.ready == 'true'
+        with:
+          name: polaris-android-unsigned-${{ github.run_number }}-${{ github.run_attempt }}
+          path: verified-apk/
+      - name: Verify source and sign the already tested APK
+        if: steps.signing.outputs.ready == 'true'
+        shell: bash
+        env:
+          KEYSTORE: ${{ secrets.POLARIS_ANDROID_KEYSTORE_BASE64 }}
+          POLARIS_ANDROID_STORE_PASSWORD: ${{ secrets.POLARIS_ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.POLARIS_ANDROID_KEY_ALIAS }}
+          POLARIS_ANDROID_KEY_PASSWORD: ${{ secrets.POLARIS_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          cd verified-apk
+          sha256sum -c SHA256SUMS
+          grep -Fx "source_sha=$GITHUB_SHA" build-info.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" build-info.txt
+          signing_file=$(mktemp "$RUNNER_TEMP/polaris-signing-XXXXXX")
+          trap 'rm -f "$signing_file"' EXIT
+          printf '%s' "$KEYSTORE" | base64 --decode > "$signing_file"
+          mkdir -p ../signed-apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$signing_file" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:POLARIS_ANDROID_STORE_PASSWORD \
+            --key-pass env:POLARIS_ANDROID_KEY_PASSWORD \
+            --out ../signed-apk/polaris.apk polaris-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs \
+            ../signed-apk/polaris.apk > ../signed-apk/signing-certificate.txt
+          cp build-info.txt ../signed-apk/unsigned-build-info.txt
+          printf 'source_sha=%s\nrun_id=%s\nsigning=personal-keystore\nversion_code=%s\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" > ../signed-apk/build-info.txt
+          cd ../signed-apk
+          sha256sum polaris.apk > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: steps.signing.outputs.ready == 'true'
+        with:
+          name: polaris-android-signed-${{ github.run_number }}-${{ github.run_attempt }}
+          path: signed-apk/
           if-no-files-found: error
           retention-days: 14

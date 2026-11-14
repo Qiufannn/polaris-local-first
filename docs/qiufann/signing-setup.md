@@ -1,0 +1,40 @@
+# 稳定个人签名的准备与当前停点
+
+2026-11-14（中国时间）。订阅实现的已验证源码见阶段 B 回执。本文件只记录签名构建准备；**尚未生成实际签名密钥，尚未配置任何 Secrets，尚无可安装签名 APK**。
+
+## 已准备的构建路径
+
+1. 原有完整回归、原生测试和 unsigned release 构建继续执行。
+2. CI 使用本 workflow 的 `github.run_number` 作为 versionCode，versionName 为 `1.0-qiufann.<run_number>`，避免后续个人版本一直固定为 1。未指定环境变量的本地构建仍沿用上游 1 / 1.0。不要删除并重建该 workflow 来重置计数；需要重建时先核对已安装的最高版本号。
+3. 新签名作业只在本人仓库的定制分支 push 且两个检查作业成功后执行；PR 不读取签名材料。
+4. 四个签名 Secrets 全空时明确报告“未配置”，只保留 unsigned 产物；部分缺失时失败。它不会自动生成或替换密钥。
+5. 配置完整后，签名作业下载同一 run 的已测试 unsigned artifact，检查 APK SHA256、source_sha、run_id，再用稳定 keystore 签名，不重建应用。
+6. 密钥只临时解码到 GitHub runner 的受限临时文件，密码通过进程环境变量交给 apksigner；退出即清理。密钥不上传为 artifact，不提交 Git，不出现在命令参数或日志里。
+7. 签名产物只包含 APK、校验值、源提交回执和公开证书信息，名称 `polaris-android-signed-<run>-<attempt>`。必须通过 apksigner verify；配置完成前不能宣称这条分支已实际跑通。
+
+## 需要的安全存储字段（只有名字，没有值）
+
+- `POLARIS_ANDROID_KEYSTORE_BASE64`
+- `POLARIS_ANDROID_STORE_PASSWORD`
+- `POLARIS_ANDROID_KEY_ALIAS`
+- `POLARIS_ANDROID_KEY_PASSWORD`
+
+这些材料应新生成一次后由秋凡控制的安全存储保管，之后更新 APK 重用。不要把已有 API Key、OAuth token、GitHub token、密码或签名材料发到聊天。第一次个人签名与原作者签名不同，不能假定它能覆盖原作者安装包；不得为了安装而直接卸载并丢失已有数据。
+
+## 当前实际阻挡
+
+- GitHub 连接能推送代码和运行 CI，但仓库 Actions Secrets 的加密公钥接口返回 HTTP 403，无法由现有 API 连接安全配置 Secrets。
+- 秋凡已明确同意操作手机里的 GitHub 设置。手机工具两次读取屏幕及一次查询 GitHub App 均返回 MCP `-32603 Internal error`；没有读取到屏幕，也没有点击或修改手机设置。
+- 已请秋凡打开手机连接服务、确认在线并保持解锁；这是恢复连接，**不需要再次授权手机操作**。
+- 秋凡回复“好啦”后，手机工具返回 GitHub Secrets 设置网址已打开，但后续读取屏幕仍返回 Internal error，接着返回 `Session terminated`。因此未确认页面内容，未点击、未输入、未改动任何 Secrets，也未读取密码。
+- 手机连接恢复后先检查 GitHub 官方安全设置入口。如果要求本人验证，由秋凡在手机本地完成，不索取验证密码或 token。
+
+## 仍待实际验证
+
+新 keystore 的安全保管、Secrets 配置、签名成功、Android 10/较新设备安装、第二个同签名版本覆盖升级和数据留存。本轮没有用“构建成功”替代这些验收，也未推进气泡、群聊、语音或主题阶段。
+
+## 已完成的无密钥检查
+
+- `actionlint .github/workflows/qiufann-android.yml` 通过，`git diff --check` 通过。
+- 指定 `POLARIS_ANDROID_VERSION_CODE=5` 的 `testReleaseUnitTest assembleRelease` 通过（39 秒、471 个任务）；`aapt dump badging` 确认为同包名 `com.alyssa.polaris`、versionCode `5`、versionName `1.0-qiufann.5`。
+- 上述检查未提供签名材料，未创建 keystore；签名路径的真实成功验收仍未进行。
