@@ -4,11 +4,11 @@
 
 - Upstream: [Aevella/polaris-local-first](https://github.com/Aevella/polaris-local-first), `main` at `a510f9ae68a70dead5ad344829466d3e5770f600`.
 - Last upstream snapshot: 2026-11-14 (Asia/Shanghai). `main` remains an upstream mirror; custom work lives on `qiufann/chatgpt-plan-android`.
-- Custom changes so far: Android APK CI with stable personal signing, native ChatGPT subscription sign-in and protected account storage, a separate Responses transport, and a subscription account card. Automated checks and personal APK signing are verified; **real-device installation, authorization and upgrade/data-retention checks are still pending**.
+- Custom changes so far: Android APK CI with stable personal signing, native ChatGPT subscription sign-in and protected account storage, a separate Responses transport, and a subscription account card. Automated checks and personal APK signing are verified; **the app opens on the owner’s phone, but the first subscription reply failed; authorization/inference and upgrade/data-retention acceptance remain incomplete**.
 - Personal fork: [Qiufannn/polaris-local-first](https://github.com/Qiufannn/polaris-local-first). `origin` points to this fork. Hosted CI evidence is recorded in the implementation and signing reports below.
 - Known merge conflicts: none at this snapshot. Future conflict candidates include MainActivity, Android app/build.gradle, provider runtime/transport registration and UI, this README, the custom workflow, and `docs/qiufann/`.
 - [Upstream sync and unsigned CI](docs/qiufann/upstream-sync.md) · [Initial design](docs/qiufann/chatgpt-plan-design.md) · [Subscription implementation report](docs/qiufann/phase-b-report.md).
-- [Stable personal signing setup and verification](docs/qiufann/signing-setup.md). Personally signed APKs from CI #8 and #9 are verified to use the same pinned public certificate; phone acceptance is pending.
+- [Stable personal signing setup and verification](docs/qiufann/signing-setup.md). Personally signed APKs from CI #8 and #9 use the same verified pinned certificate. [First-response troubleshooting](docs/qiufann/stream-response-fix.md) tracks the phone error and targeted update.
 
 Original author attribution and AGPL-3.0-only licensing are retained. The unsigned APK is for build inspection and cannot be installed until stable signing is securely configured and verified.
 

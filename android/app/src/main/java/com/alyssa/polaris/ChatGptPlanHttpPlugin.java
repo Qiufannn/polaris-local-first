@@ -83,12 +83,13 @@ public class ChatGptPlanHttpPlugin extends Plugin {
                         throw new Exception("ChatGPT 订阅服务暂时不可用，请稍后重试（HTTP " + status + "）。");
                     }
                     String contentType = http.getContentType();
-                    if (contentType == null || !contentType.toLowerCase(java.util.Locale.ROOT).contains("text/event-stream")) {
-                        throw new Exception("订阅服务未返回流式响应，请稍后重试。");
-                    }
-                    resolved = true;
-                    call.resolve(new JSObject().put("status", status).put("contentType", contentType));
-                    try (InputStream input = http.getInputStream()) {
+                    if (!ChatGptPlanResponse.hasEventStreamType(contentType)) http.setReadTimeout(20000);
+                    try (InputStream raw = http.getInputStream()) {
+                        InputStream input = ChatGptPlanResponse.stream(raw, contentType, status);
+                        http.setReadTimeout(300000);
+                        if (cancelled || !session.current(generation)) throw new Exception("ChatGPT 账号已切换，本次回复已停止。");
+                        resolved = true;
+                        call.resolve(new JSObject().put("status", status).put("contentType", "text/event-stream"));
                         byte[] buffer = new byte[16384];
                         int count;
                         while (!cancelled && (count = input.read(buffer)) != -1) {
