@@ -68,6 +68,9 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run build
       - run: npx --no-install cap sync android
+      - name: Verify Android OAuth and session rules without real accounts
+        working-directory: android
+        run: ./gradlew --no-daemon --console=plain testReleaseUnitTest
       - name: Assemble without creating a debug keystore
         working-directory: android
         run: ./gradlew --no-daemon --console=plain assembleRelease
@@ -77,6 +80,7 @@ jobs:
           set -euo pipefail
           mkdir -p ci-artifacts
           cp android/app/build/outputs/apk/release/app-release-unsigned.apk ci-artifacts/polaris-unsigned.apk
+          cp android/app/build/test-results/testReleaseUnitTest/TEST-*.xml ci-artifacts/
           printf 'source_sha=%s\nrun_id=%s\nrun_attempt=%s\nsigning=unsigned\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > ci-artifacts/build-info.txt
           cd ci-artifacts
           sha256sum polaris-unsigned.apk > SHA256SUMS

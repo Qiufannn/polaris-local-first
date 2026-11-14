@@ -91,6 +91,7 @@ function normalizeCustomProvider(provider: Partial<ProviderProfile>, index: numb
   const matchedPreset = normalizedBaseUrl ? findProviderPreset(normalizedBaseUrl, normalizedPath) : null;
 
   const normalized: ProviderProfile = {
+    ...(provider.authKind === 'chatgpt-plan' ? { authKind: 'chatgpt-plan' as const } : {}),
     id: provider.id || createUid(`provider-${index}`),
     name: provider.name?.trim() || matchedPreset?.name || `线路 ${index + 1}`,
     protocol: matchedPreset?.protocol ?? protocol,
@@ -104,6 +105,14 @@ function normalizeCustomProvider(provider: Partial<ProviderProfile>, index: numb
       thinking: provider.capabilities?.thinking ?? matchedPreset?.capabilities.thinking ?? DEFAULT_CUSTOM_PROVIDER.capabilities.thinking
     }
   };
+  if (normalized.authKind === 'chatgpt-plan') {
+    normalized.apiKey = '';
+    normalized.protocol = 'openai-responses';
+    normalized.baseUrl = 'https://api.openai.com/v1';
+    normalized.path = '/responses';
+    normalized.model = provider.model?.trim() ?? '';
+    normalized.capabilities.streaming = true;
+  }
   return provider.imageUnderstanding === undefined
     ? normalized
     : {
@@ -215,7 +224,7 @@ export function mergeProviderPatch(provider: ProviderProfile, patch: Partial<Pro
     protocol: nextProtocol,
     baseUrl: nextBaseUrl,
     path: nextPath,
-    apiKey: patch.apiKey !== undefined ? patch.apiKey.trim() : provider.apiKey,
+    apiKey: (patch.authKind ?? provider.authKind) === 'chatgpt-plan' ? '' : patch.apiKey !== undefined ? patch.apiKey.trim() : provider.apiKey,
     model: nextModel,
     capabilities: nextCapabilities,
     ...(nextImageUnderstanding === undefined ? {} : { imageUnderstanding: nextImageUnderstanding })

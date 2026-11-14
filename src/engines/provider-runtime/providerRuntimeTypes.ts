@@ -205,6 +205,7 @@ export type ProviderAdapterMatch = {
 };
 
 export type ProviderHttpRequest = {
+  authentication?: 'chatgpt-plan';
   endpoint: string;
   headers: Record<string, string>;
   body: Record<string, unknown>;

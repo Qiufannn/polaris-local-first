@@ -3,6 +3,7 @@ import type { PersonaAdvancedSettings, ProviderProfile } from '../types/domain';
 import { buildApiRequest } from './chat-api/chatApiRequestBuilder';
 import { executeBuiltRequest } from './chat-api/chatApiTransport';
 import { isPolarisBuiltInProvider } from './freeProvider';
+import { isChatgptPlanProvider } from './chatgptPlan';
 import { explainConnectivityFailure } from './providerErrorHandling';
 import { resolveProviderCapability } from './provider-runtime/providerCapability';
 import { resolveProviderRuntimeRequestAdapter } from './provider-runtime/providerRuntimeAdapters';
@@ -32,7 +33,7 @@ export async function testApiConnection(params: {
 
   try {
     const { api, advanced } = params;
-    if (!api.apiKey.trim() && !isPolarisBuiltInProvider(api)) return { ok: false, error: '未填写 API Key' };
+    if (!api.apiKey.trim() && !isPolarisBuiltInProvider(api) && !isChatgptPlanProvider(api)) return { ok: false, error: '未填写 API Key' };
 
     request = buildApiRequest({
       api,

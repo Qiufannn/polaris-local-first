@@ -2,6 +2,8 @@ import { buildApiEndpoint, buildInternalApiEndpoint } from './chat-api/chatApiEn
 import { ANTHROPIC_VERSION } from './provider-runtime/requestShared/headers';
 import { resolveProviderCapability } from './provider-runtime/providerCapability';
 import { inferProviderProtocol } from './providerProtocol';
+import { isChatgptPlanProvider } from './chatgptPlan';
+import { Capacitor } from '@capacitor/core';
 import type { ProviderProfile } from '../types/domain';
 import {
   ANTHROPIC_BROWSER_ACCESS_HEADER,
@@ -159,6 +161,7 @@ async function readProviderModelResponse(res: Response) {
 }
 
 export function canDiscoverProviderModels(api: ProviderProfile) {
+  if (isChatgptPlanProvider(api)) return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
   return Boolean(isAbsoluteProviderBaseUrl(api.baseUrl) && api.apiKey.trim());
 }
 
@@ -167,6 +170,14 @@ export async function discoverProviderModels(params: {
   signal?: AbortSignal;
 }): Promise<ProviderModelDiscoveryResult> {
   const { api, signal } = params;
+  if (isChatgptPlanProvider(api)) {
+    try {
+      const { chatgptAuth } = await import('../native/chatgptAuth');
+      const result = await chatgptAuth.models();
+      if (signal?.aborted) return { ok: false, error: '已取消读取模型。' };
+      return { ok: true, models: result.models, source: 'live' };
+    } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '无法读取订阅模型。' }; }
+  }
   if (!api.baseUrl.trim()) return { ok: false, error: '未填写 API Base URL' };
   if (!api.apiKey.trim()) return { ok: false, error: '未填写 API Key' };
   if (!isAbsoluteProviderBaseUrl(api.baseUrl)) {

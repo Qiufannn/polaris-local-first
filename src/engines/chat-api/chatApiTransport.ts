@@ -10,8 +10,11 @@ import {
 } from './providerRelay';
 import type { ProviderProfile } from '../../types/domain';
 import { resolveProviderRuntimeRequestAdapter } from '../provider-runtime/providerRuntimeAdapters';
+import { isChatgptPlanProvider } from '../chatgptPlan';
+import { createChatgptPlanStreamParser } from '../provider-runtime/providerRuntimeChatgptPlanAdapter';
 import {
   canUseNativeProviderHttp,
+  canUseChatgptPlanHttp,
   executeNativeProviderHttpRequest
 } from '../../native/providerHttp';
 
@@ -114,18 +117,20 @@ async function executeNativeBuiltRequest(params: {
   onProgress?: (reply: AssistantReplyProgress) => void;
   onChunk?: () => void;
 }) {
-  if (!canUseNativeProviderHttp()) {
+  const plan = isChatgptPlanProvider(params.api);
+  if (plan ? !canUseChatgptPlanHttp() : !canUseNativeProviderHttp()) {
     throw new Error('当前 App 缺少原生模型网络桥，请更新 Polaris 后再试。');
   }
 
   const { api, request, signal, onProgress, onChunk } = params;
   const providerAdapter = resolveProviderRuntimeRequestAdapter(api);
   const requestedStreaming = requestBodyStreams(request.body);
+  const planParser = plan ? createChatgptPlanStreamParser() : null;
   const collector = requestedStreaming
     ? createStreamingReplyCollector(
         api.model,
         onProgress,
-        (payload) => providerAdapter.parseStreamEvents({ payload })
+        (payload) => planParser ? planParser.parse(payload) : providerAdapter.parseStreamEvents({ payload })
       )
     : null;
   const startedAt = Date.now();
@@ -143,6 +148,7 @@ async function executeNativeBuiltRequest(params: {
 
   try {
     await executeNativeProviderHttpRequest({
+      transport: plan ? 'chatgpt-plan' : undefined,
       url: request.endpoint,
       headers: request.headers,
       body: JSON.stringify(request.body),
@@ -193,7 +199,11 @@ async function executeNativeBuiltRequest(params: {
     throw new Error(`API ${status}: ${responseText.slice(0, 180)}`);
   }
 
-  if (collector) return collector.finish();
+  if (collector) {
+    const reply = collector.finish();
+    planParser?.assertCompleted();
+    return reply;
+  }
 
   const reply = readNonStreamingPayload({
     text: responseText,
@@ -230,6 +240,12 @@ export async function executeBuiltRequest(params: {
   rawProviderError?: boolean;
 }) {
   const { api, request, forceRelay = false, signal, onProgress, onChunk } = params;
+  if (isChatgptPlanProvider(api) || request.authentication === 'chatgpt-plan') {
+    if (!isChatgptPlanProvider(api) || request.authentication !== 'chatgpt-plan' || forceRelay || !canUseChatgptPlanHttp()) {
+      throw new Error('ChatGPT 订阅只能通过 Android 安全授权线路连接；不会自动切换到其他线路。');
+    }
+    return executeNativeBuiltRequest({ api, request, signal, onProgress, onChunk });
+  }
   if (!forceRelay && Capacitor.isNativePlatform() && isAbsoluteProviderEndpoint(request.endpoint)) {
     return await executeNativeBuiltRequest({ api, request, signal, onProgress, onChunk });
   }

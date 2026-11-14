@@ -23,6 +23,7 @@ import {
 } from './chat-api/chatApiTransport';
 import { resolveProviderCapability } from './provider-runtime/providerCapability';
 import { isPolarisBuiltInProvider } from './freeProvider';
+import { isChatgptPlanProvider } from './chatgptPlan';
 export { testApiConnection } from './providerConnectionTest';
 export type {
   AssistantNativeToolCall,
@@ -65,7 +66,7 @@ export async function requestAssistantReply(params: RequestAssistantReplyParams)
     onProgress,
     onBuiltRequest
   } = params;
-  if (!api.apiKey.trim() && !isPolarisBuiltInProvider(api)) throw new Error('请先在设置里填写 API Key');
+  if (!api.apiKey.trim() && !isPolarisBuiltInProvider(api) && !isChatgptPlanProvider(api)) throw new Error('请先在设置里填写 API Key');
 
   const providerCapability = resolveProviderCapability(api, advanced);
   const maxAttempts = providerCapability.execution.maxAttempts;

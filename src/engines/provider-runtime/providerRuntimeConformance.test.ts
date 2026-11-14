@@ -36,6 +36,7 @@ function hasOutputTokenField(body: Record<string, unknown>, field: string | null
 describe('provider runtime characterization fixtures', () => {
   it('routes provider requests through registered adapters', () => {
     expect(providerRuntimeRequestAdapters.map((adapter) => adapter.id)).toEqual([
+      'chatgpt-plan',
       'anthropic-messages',
       'openai-responses',
       'gemini-generate-content',

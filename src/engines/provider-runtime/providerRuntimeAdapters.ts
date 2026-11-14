@@ -3,6 +3,7 @@ import { anthropicMessagesAdapter } from './providerRuntimeAnthropicAdapter';
 import { geminiGenerateContentAdapter } from './providerRuntimeGeminiAdapter';
 import { openAiCompatibleChatAdapter } from './providerRuntimeOpenAiCompatibleAdapter';
 import { openAiResponsesAdapter } from './providerRuntimeResponsesAdapter';
+import { chatgptPlanAdapter } from './providerRuntimeChatgptPlanAdapter';
 
 export { anthropicMessagesAdapter } from './providerRuntimeAnthropicAdapter';
 export { geminiGenerateContentAdapter } from './providerRuntimeGeminiAdapter';
@@ -10,6 +11,7 @@ export { openAiCompatibleChatAdapter } from './providerRuntimeOpenAiCompatibleAd
 export { openAiResponsesAdapter } from './providerRuntimeResponsesAdapter';
 
 export const providerRuntimeRequestAdapters: readonly ProviderRuntimeRequestAdapter[] = [
+  chatgptPlanAdapter,
   anthropicMessagesAdapter,
   openAiResponsesAdapter,
   geminiGenerateContentAdapter,

@@ -406,7 +406,7 @@ export function canonicalProviderCapabilitiesFromContract(capability: ProviderCa
       contextWindowTokens: capability.budgets.contextWindowTokens,
       recommendedPromptTokens: capability.budgets.recommendedPromptTokens,
       promptBudgetPolicy: capability.budgets.promptBudgetPolicy,
-      outputTokenField: capability.budgets.outputTokenField,
+      outputTokenField: capability.provider.authKind === 'chatgpt-plan' ? null : capability.budgets.outputTokenField,
       reasoningBudget: capability.provider.capabilities.thinking && capability.thinking.sendBudget
     },
     cache: {
@@ -423,6 +423,21 @@ export function resolveProviderCapability(
   provider: ProviderProfile,
   advanced?: ProviderCapabilityAdvanced
 ): ProviderCapability {
+  if (provider.authKind === 'chatgpt-plan') {
+    const base = resolveProviderCapability({ ...provider, authKind: undefined, apiKey: '',
+      protocol: 'openai-responses', baseUrl: 'https://api.openai.com/v1', path: '/responses',
+      capabilities: { ...provider.capabilities, streaming: true } }, { ...advanced, streaming: true });
+    return {
+      ...base, provider: { ...base.provider, authKind: 'chatgpt-plan' },
+      output: { ...base.output, nativeToolCalls: true },
+      streaming: { ...base.streaming, text: true, toolCalls: true, disableWhenToolsPresent: false },
+      sampling: { ...base.sampling, sendTemperature: false, sendTopP: false },
+      tools: { ...base.tools, mode: 'native', history: 'native', openAiHistoryReplay: 'native' },
+      thinking: { sendBudget: false, effortMapping: 'none' },
+      transport: { modes: ['native-direct'], relayAllowedWhenNetworkFails: false },
+      execution: { ...base.execution, maxAttempts: 1 }
+    };
+  }
   const runtimeProvider = resolveRuntimeProvider(provider, advanced);
   const protocol = inferProviderProtocol(runtimeProvider);
   const profile = resolveProviderProfile(runtimeProvider);

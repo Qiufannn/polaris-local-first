@@ -1,6 +1,8 @@
 import type { ImageUnderstandingSettings } from './persona';
 
 export interface ProviderProfile {
+  /** Authentication kind only. OAuth identity and credentials never enter runtime persistence. */
+  authKind?: 'chatgpt-plan';
   id: string;
   name: string;
   protocol: ProviderProtocol;

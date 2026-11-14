@@ -3,6 +3,7 @@ import { inferProviderProtocol } from './providerProtocol';
 import type { ProviderCapabilities, ProviderProfile, ProviderProtocol } from '../types/domain';
 
 export type ProviderRouteCard = {
+  authKind?: 'chatgpt-plan';
   type: 'polaris-provider-card';
   version: 1;
   name?: string;
@@ -60,10 +61,11 @@ function normalizeRouteCardObject(raw: Record<string, unknown>): ParsedProviderR
 
   return {
     name: readOptionalString(raw.name) || preset?.name || '导入线路',
+    ...(raw.authKind === 'chatgpt-plan' ? { authKind: 'chatgpt-plan' as const } : {}),
     protocol: preset?.protocol ?? protocol,
     baseUrl,
     path,
-    apiKey: readOptionalString(raw.apiKey),
+    apiKey: raw.authKind === 'chatgpt-plan' ? '' : readOptionalString(raw.apiKey),
     model,
     capabilities: normalizeCapabilities(
       raw.capabilities && typeof raw.capabilities === 'object' && !Array.isArray(raw.capabilities)
@@ -75,10 +77,11 @@ function normalizeRouteCardObject(raw: Record<string, unknown>): ParsedProviderR
 }
 
 export function serializeProviderRouteCard(
-  provider: Pick<ProviderProfile, 'name' | 'protocol' | 'baseUrl' | 'path' | 'apiKey' | 'model' | 'capabilities'>,
+  provider: Pick<ProviderProfile, 'authKind' | 'name' | 'protocol' | 'baseUrl' | 'path' | 'apiKey' | 'model' | 'capabilities'>,
   options: { includeApiKey?: boolean } = {}
 ) {
   const routeCard: ProviderRouteCard = {
+    ...(provider.authKind === 'chatgpt-plan' ? { authKind: 'chatgpt-plan' as const } : {}),
     type: 'polaris-provider-card',
     version: 1,
     name: provider.name.trim() || undefined,
@@ -93,7 +96,7 @@ export function serializeProviderRouteCard(
     }
   };
 
-  if (options.includeApiKey && provider.apiKey.trim()) {
+  if (provider.authKind !== 'chatgpt-plan' && options.includeApiKey && provider.apiKey.trim()) {
     routeCard.apiKey = provider.apiKey.trim();
   }
 

@@ -4,10 +4,10 @@
 
 - Upstream: [Aevella/polaris-local-first](https://github.com/Aevella/polaris-local-first), `main` at `a510f9ae68a70dead5ad344829466d3e5770f600`.
 - Last upstream snapshot: 2026-11-14 (Asia/Shanghai). `main` remains an upstream mirror; custom work lives on `qiufann/chatgpt-plan-android`.
-- Custom changes so far: unsigned Android APK CI and the subscription-login code review / implementation plan. ChatGPT subscription login is **not implemented**.
+- Custom changes so far: unsigned Android APK CI, native ChatGPT subscription sign-in and protected account storage, a separate Responses transport, and a subscription account card. Automated protocol/stream tests are implemented; **real-device authorization and a signed installable release are not yet verified**.
 - Personal fork: [Qiufannn/polaris-local-first](https://github.com/Qiufannn/polaris-local-first). `origin` now points to this fork; the initial integration-only repository creation returned HTTP 403 and the owner created the fork. Hosted CI status is recorded in the first-round report.
 - Known merge conflicts: none at this snapshot. Future conflict candidates: this README, `.github/workflows/qiufann-android.yml`, and `docs/qiufann/`.
-- [Upstream sync and unsigned CI](docs/qiufann/upstream-sync.md) · [ChatGPT plan design and proposed file list](docs/qiufann/chatgpt-plan-design.md).
+- [Upstream sync and unsigned CI](docs/qiufann/upstream-sync.md) · [Initial design](docs/qiufann/chatgpt-plan-design.md) · [Subscription implementation report](docs/qiufann/phase-b-report.md).
 
 Original author attribution and AGPL-3.0-only licensing are retained. The unsigned APK is for build inspection and cannot be installed until a later, separately approved signing step.
 

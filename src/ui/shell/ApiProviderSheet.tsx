@@ -9,6 +9,7 @@ import { Icon } from '../Icon';
 import { RuntimePerformanceSurfaceMounted } from '../runtime-performance/RuntimePerformanceSurfaceSignals';
 import { ApiProviderAddView } from './ApiProviderAddView';
 import { ApiProviderConfigForm } from './ApiProviderConfigForm';
+import { ChatgptSubscriptionCard } from './ChatgptSubscriptionCard';
 import { ApiProviderListView } from './ApiProviderListView';
 import { getProviderModelDisplayLabel } from './apiProviderDisplay';
 
@@ -231,6 +232,7 @@ export function ApiProviderSheet({
         </div>
 
         <div className="api-provider-sheet-scroll">
+          <ChatgptSubscriptionCard />
           {!showingDetail ? (
             showingAdd ? (
               <ApiProviderAddView
@@ -267,7 +269,7 @@ export function ApiProviderSheet({
                 </div>
               </div>
 
-              <ApiProviderConfigForm
+              {api.authKind === 'chatgpt-plan' ? <p>{t('chatgpt.manageAbove')}</p> : <ApiProviderConfigForm
                 api={api}
                 providers={providers}
                 modelPickerOpen={modelPickerOpen}
@@ -276,7 +278,7 @@ export function ApiProviderSheet({
                 onSetApiConfig={onSetApiConfig}
                 onToggleModelPicker={() => setModelPickerOpen((prev) => !prev)}
                 onRunApiTest={onRunApiTest}
-              />
+              />}
             </>
           )}
         </div>

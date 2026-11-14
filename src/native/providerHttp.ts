@@ -25,6 +25,13 @@ type NativeProviderHttpPlugin = {
 };
 
 const NativeProviderHttp = registerPlugin<NativeProviderHttpPlugin>('NativeProviderHttp');
+const ChatGptPlanHttp = registerPlugin<Omit<NativeProviderHttpPlugin, 'start'> & {
+  start(options: { requestId: string; body: string }): Promise<{ status: number; contentType?: string }>;
+}>('ChatGptPlanHttp');
+
+export function canUseChatgptPlanHttp() {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android' && Capacitor.isPluginAvailable('ChatGptPlanHttp');
+}
 
 function createRequestId() {
   return `provider-http-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`;
@@ -50,6 +57,7 @@ export function canUseNativeProviderHttp() {
 }
 
 export async function executeNativeProviderHttpRequest(args: {
+  transport?: 'chatgpt-plan';
   url: string;
   headers: Record<string, string>;
   body: string;
@@ -57,6 +65,7 @@ export async function executeNativeProviderHttpRequest(args: {
   onResponse: (response: { status: number; contentType: string }) => void;
   onTextChunk: (chunk: string) => void;
 }) {
+  const plugin = args.transport === 'chatgpt-plan' ? ChatGptPlanHttp : NativeProviderHttp;
   const requestId = createRequestId();
   const decoder = new TextDecoder();
   const pendingEvents: NativeProviderHttpEvent[] = [];
@@ -109,7 +118,7 @@ export async function executeNativeProviderHttpRequest(args: {
   const cancelNativeRequest = () => {
     if (cancelRequested) return;
     cancelRequested = true;
-    void NativeProviderHttp.cancel({ requestId }).catch(() => undefined);
+    void plugin.cancel({ requestId }).catch(() => undefined);
   };
 
   const abortRequest = () => {
@@ -118,7 +127,7 @@ export async function executeNativeProviderHttpRequest(args: {
   };
 
   try {
-    listener = await NativeProviderHttp.addListener('event', (event) => {
+    listener = await plugin.addListener('event', (event) => {
       if (event.requestId !== requestId) return;
       if (!responseReady) {
         pendingEvents.push(event);
@@ -131,7 +140,7 @@ export async function executeNativeProviderHttpRequest(args: {
     args.signal?.addEventListener('abort', abortRequest, { once: true });
 
     const response = await Promise.race([
-      NativeProviderHttp.start({
+      args.transport === 'chatgpt-plan' ? ChatGptPlanHttp.start({ requestId, body: args.body }) : NativeProviderHttp.start({
         requestId,
         url: args.url,
         headers: args.headers,

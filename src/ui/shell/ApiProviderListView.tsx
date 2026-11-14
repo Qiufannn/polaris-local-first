@@ -58,7 +58,7 @@ function resolveProviderListStatus(
     return { label: t('apiProvider.list.statusIncomplete'), tone: 'muted' };
   }
 
-  if (!provider.apiKey.trim()) {
+  if (!provider.apiKey.trim() && provider.authKind !== 'chatgpt-plan') {
     return { label: t('apiProvider.list.statusMissingKey'), tone: 'warning' };
   }
 
