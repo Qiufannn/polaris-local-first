@@ -1,6 +1,6 @@
 # 稳定个人签名的配置与验证
 
-当前状态：秋凡已确认在手机 GitHub 官方页面保存 `POLARIS_ANDROID_SIGNING_SEED`。尚待新 CI 验证能否使用该配置并产出真实个人签名 APK；没有读取、索取或接收该值。既有阶段 B 自动验证不等于真机授权和覆盖升级验收。
+当前状态：秋凡在手机 GitHub 官方页面保存恢复值后，CI #8 已真实完成个人签名；已下载独立核对 APK、源码回执、证书及完整性。没有读取、索取或接收恢复值、密码或私钥。真机安装、官方授权和覆盖升级仍待本人验收。
 
 ## 手机手动配置：一个新 Secret
 
@@ -31,7 +31,7 @@ GitHub 设置使用 **Via（mark.via）**；聊天使用 **Edge（com.microsoft.
 
 ## 仍待实际验证
 
-GitHub 配置已由本人报告保存，仍待 CI 验证实际签名成功、Android 10/较新设备安装、第二个同签名版本覆盖升级和数据留存。实际签名步骤成功前不得把绿色 CI 当作实际签名成功。未推进气泡、群聊、语音或主题阶段。
+GitHub 配置和真实个人签名已通过 CI #8 验证。仍待 Android 10/较新设备安装、官方订阅授权与真实回复、第二个同签名版本覆盖升级和数据留存。手机没有装过 Polaris，按首次安装流程处理。未推进气泡、群聊、语音或主题阶段。
 
 ## 新路径的本地验证
 
@@ -60,3 +60,12 @@ GitHub 配置已由本人报告保存，仍待 CI 验证实际签名成功、And
 - 源码 `4d8ffbb21aaa428aa66efa5c18f1e349ae1ab9ab` 的 [CI #7](https://github.com/Qiufannn/polaris-local-first/actions/runs/43604676245) 四个作业均成功，包含新增公开测试向量签名/验签作业。
 - 该 run 排队时尚未保存个人 Secret，实际恢复签名和 signed artifact 上传步骤全部 skipped。
 - 秋凡随后报告手机保存完成；本次文档更新将触发新 run，实际个人签名结果以新 run 的步骤和产物为准。
+
+## 首份真实个人签名（CI #8）
+
+- [CI #8](https://github.com/Qiufannn/polaris-local-first/actions/runs/43605081112)，源码 `c6b0b7f91656840bafbccfd8848b97c02e7e3d69`。网页 489 个文件 / 3100 项测试通过；下载核对原生 XML 为 18 项，0 failures / errors / skipped。四个作业成功，恢复值签名、证书核对和 signed artifact 上传步骤均实际执行。
+- [signed artifact](https://github.com/Qiufannn/polaris-local-first/actions/runs/43605081112/artifacts/14117853395)：`polaris-android-signed-8-1`。ZIP SHA256 `711692ff91fc8265881c3dab2b7c32a60c266d0e5cd97f05232dc5f35cbfdcc2`，与 GitHub digest 相同。
+- APK 15,744,714 bytes，SHA256 `2c64d405d36892a98ead592be794cfc77cdabca065ca0abdfc173daf2a0110a8`；包名 `com.alyssa.polaris`、versionCode `8`、versionName `1.0-qiufann.8`。
+- 公开个人证书 SHA256 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，与公开测试证书不同。已独立运行 `apksigner verify --min-sdk-version 29 --verbose --print-certs` 成功，使用 v3 签名；所有 unsigned APK ZIP 条目字节均保持一致。
+- ZIP 仅含 APK、校验值、源码回执和公开证书信息，未包含私钥或恢复值。源提交 SHA / run_id / versionCode 全部匹配。
+- 本次将上面公开证书固定到 `tools/android-signing/expected-certificate.sha256`，触发下一次 CI 验证同签名更新。该第二次构建的实际结果另行记录；手机验收步骤见 [手机检查清单](device-check.md)。
