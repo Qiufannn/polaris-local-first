@@ -20,6 +20,18 @@
 
 新增 8 项原生恢复测试，包括：继续原验证码不重复申请、请求超时后成功、429 和 Retry-After、两种响应格式及恶意/重复字段、表单编码 pending 到授权完成、格式失败限次重试与继续、过期明确报错、错误信息不泄露凭证。完整 Android 单元测试 51 项通过。相关 5 个 Web 测试文件 / 30 项通过；TypeScript 检查和生产 Web 构建通过。
 
-手机尺寸的合成 UI 检查通过：未授权目录测试明确失败、短暂轮询失败后继续接收并成功、复制打开网页不打断轮询、取消、SHA 预览、保存，以及既有 Notion 连接/预览/断开流程。合成资料不包含私人记忆，也没有代替本人实际 OAuth。CI 与签名安装包证据待补记。
+手机尺寸的合成 UI 检查通过：未授权目录测试明确失败、短暂轮询失败后继续接收并成功、复制打开网页不打断轮询、取消、SHA 预览、保存，以及既有 Notion 连接/预览/断开流程。合成资料不包含私人记忆，也没有代替本人实际 OAuth。
+
+## 第 13 版签名包
+
+- 实现 commit：`ec613c122b87c5f682972c7b3582018256ed232c`。
+- [CI #13](https://github.com/Qiufannn/polaris-local-first/actions/runs/43665782176) 的四个 job 全部成功。额外工具/API 与 Worker 类型检查通过；Web 完整测试 491 个文件 / 3,111 项通过；下载的 Android XML 确认 51 项通过、0 失败。
+- 推荐 [signed-13-1 artifact](https://github.com/Qiufannn/polaris-local-first/actions/runs/43665782176/artifacts/14142018767)，解压后用 `polaris.apk` 覆盖安装。版本 `1.0-qiufann.13`，versionCode `13`，包名 `com.alyssa.polaris`。
+- 签名 ZIP SHA-256：`0c993067fc28e90a8c01d8fa2d4b7d0e7f87aa9756ac20a9d39e5757004adfb8`。
+- APK SHA-256：`d4d43e7a8024b6000849a7aa2d9d99aa4241eff0358a1e867f66c74bc5ae18f5`。
+- 个人证书 SHA-256：`f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，与旧版固定证书一致。下载后独立 `apksigner verify` 通过，版本、源码、run ID 和文件摘要均一致。
+- unsigned artifact `14141604701` 的 ZIP SHA-256 为 `cff30e760f34b272594a2db6381af5ef38b09a5e75afacf211f270f6b7858697`，APK SHA-256 为 `aac567566c9cd343dee1af2fc1a53709e1d6de14ef9c6a947f7ef17717026055`。签名包每项原始 ZIP 内容均与其一致，只新增三个 v1 签名条目；已确认恢复解析器与“继续接收”界面均在实际交付 APK 内。
+
+手机复测：打开原 GitHub 服务卡，开始一次新的设备登录并在官方网页批准，返回 Polaris 等待结果。短暂中断会自动重试；如果出现“继续接收 GitHub 授权结果”，点它接收仍有效的同一授权。登录完成后再验证真实内容，核对 identity 路径、SHA 与本人内容预览，保存。若仍失败，仅反馈新版安全错误文字，不发送验证码或凭证。
 
 本人实际更新后仍需完成 GitHub 授权和私密文件读取。自动测试通过不能替代手机真实闭环。
