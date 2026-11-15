@@ -4,9 +4,10 @@ function requestText(content: string) {
   return content.replace(/```[\s\S]*?(?:```|$)/g, '').replace(/^\s*>.*$/gm, '')
     // "Don't claim it is saved" governs reporting, not whether to write. Remove
     // that clause from both checks so it can neither deny nor authorize a save.
-    // Stop at commas as well: a later "don't write" must still take precedence.
-    .replace(/(?:不要|别|不必|无需|不需要)(?:再|先)?(?:说|声称|宣称|谎称|假装|称|告诉我|回复)[^，,。！？!?；;\n]*/g, '')
-    .replace(/\b(?:do not|don't|never)\s+(?:claim|say|pretend|report|tell)\b[^，,。！？!?.；;\n]*/gi, '')
+    // Stop at punctuation or the next prohibition: even without a comma, a
+    // later "don't write" must still take precedence.
+    .replace(/(?:不要|别|不必|无需|不需要)(?:再|先)?(?:说|声称|宣称|谎称|假装|称|告诉我|回复)(?:(?!(?:不要|别|不必|无需|先不|不需要))[^，,。！？!?；;\n])*/g, '')
+    .replace(/\b(?:do not|don't|never)\s+(?:claim|say|pretend|report|tell)\b(?:(?!\b(?:do not|don't|never)\b)[^，,。！？!?.；;\n])*/gi, '')
     .trim();
 }
 
