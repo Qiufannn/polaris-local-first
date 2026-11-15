@@ -15,6 +15,7 @@ import { isWorldFrameInteractive } from './worldFrameInteractivity';
 import type { PersistenceReadFailureNoticeState } from './usePersistenceReadFailureNotice';
 import { useAppearanceDomEffects } from '../useAppearanceDomEffects';
 import type { World } from '../../types/domain';
+import { useHomeScreenController } from './useHomeScreenController';
 
 type AppShellViewControllerInput = ReturnType<typeof useAppShellController> & {
   startupThemeReady: boolean;
@@ -114,6 +115,7 @@ function countFilterNodes(root: Element | null) {
 }
 
 export function useAppShellViewController(props: AppShellViewControllerInput) {
+  const home = useHomeScreenController(props.chatWorldProps.ui.setCommandStatus);
   const {
     activeWorld,
     shellWorld,
@@ -296,6 +298,7 @@ export function useAppShellViewController(props: AppShellViewControllerInput) {
 
   return {
     ...props,
+    home,
     isWorldSwitching,
     isCollaboratorTransitionActive,
     backgroundUrl,

@@ -1,6 +1,5 @@
 import type { DragEvent } from 'react';
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { LocalHome } from './chat/LocalHome';
+import { Suspense, lazy, useRef } from 'react';
 import { loadThinkingSheetModule } from '../app-shell/appShellLazyModules';
 import { ChatComposer } from './chat/composer/ChatComposer';
 import { useComposerFileIngest } from './chat/composer/useComposerFileIngest';
@@ -28,10 +27,8 @@ type ChatWorldProps = {
 };
 
 function ChatWorldLayout({ shell }: ChatWorldProps) {
-  const [homeOpen, setHomeOpen] = useState(false);
   const stablePayload = useChatStablePayload();
   const presentation = useChatPresentation();
-  useEffect(() => { setHomeOpen(false); }, [presentation.activeCollaboratorId, shell.isActiveWorld]);
   const composer = useChatComposer();
   const ui = useChatUi();
   const actions = useChatActions();
@@ -79,13 +76,11 @@ function ChatWorldLayout({ shell }: ChatWorldProps) {
       onDrop={handleDrop}
     >
       <div className="chat-body">
-        <button type="button" className="local-home-launch" aria-label="打开小家" onClick={() => setHomeOpen(true)}>⌂ 小家</button>
         <MessageTimeline isWorldSettled={shell.isActiveWorld && !shell.isWorldSwitching} />
       </div>
       <div className="chat-dock">
         <ChatComposer />
       </div>
-      {homeOpen && <LocalHome persona={stablePayload.persona} onClose={() => setHomeOpen(false)} />}
       {thinkingSummaryMessage ? (
         <Suspense fallback={null}>
           <ThinkingSheet

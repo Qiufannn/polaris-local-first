@@ -13,6 +13,7 @@ export type DesktopAppSidebarShelfItem = {
 };
 
 export type DesktopAppSidebarProps = {
+  onOpenHome?: () => void;
   activeWorld: World;
   activeConversationId: string | null;
   collectionShelf: CollectionShelf;
@@ -63,6 +64,7 @@ function sortSidebarCollaborators(collaborators: Persona[]) {
 }
 
 export function DesktopAppSidebar({
+  onOpenHome,
   activeWorld,
   activeConversationId,
   collectionShelf,
@@ -170,6 +172,7 @@ export function DesktopAppSidebar({
   return (
     <aside className={`desktop-app-sidebar ${collapsed ? 'collapsed' : ''}`} aria-label={t('desktop.navLabel')}>
       <div className="desktop-app-sidebar-topline">
+        {onOpenHome && <button type="button" className="desktop-sidebar-collapse-toggle" aria-label="回到家园首页" title="回到家园首页" onClick={onOpenHome}>⌂</button>}
         <button
           type="button"
           className="desktop-sidebar-collapse-toggle"

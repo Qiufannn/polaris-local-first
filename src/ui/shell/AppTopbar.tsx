@@ -30,6 +30,7 @@ export type AppTopbarState = {
 };
 
 export type AppTopbarActions = {
+  onOpenHome?: () => void;
   onToggleWorld: () => void;
   onToggleCollaboratorSwitch: () => void;
   onCreateConversation: () => void;
@@ -155,6 +156,7 @@ export function AppTopbar({
           ) : null}
 
           <div className="topbar-actions">
+            {actions.onOpenHome && <button type="button" className="action-btn icon-btn" aria-label="回到家园首页" title="回到家园首页" onClick={actions.onOpenHome}>⌂</button>}
             {canOpenCollectionInfoSettings && (
               <button
                 type="button"

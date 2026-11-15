@@ -24,10 +24,16 @@ describe('portable local skills', () => {
     skill.enabled = true; expect(buildPersonaSkillContext([skill], [{ role: 'assistant', content: '@unit-skill' }, { role: 'user', content: 'hello' }])).toBe('');
   });
   it('blocks missing sources instead of claiming the full skill is loaded', () => {
-    const skill = { ...importPersonaSkill(original), enabled: true, activation: 'always' as const };
+    const imported = importPersonaSkill(original);
+    const skill = { ...imported, enabled: true, activation: 'always' as const, resources: imported.resources.map(resource => ({ ...resource, required: true })) };
     const context = buildPersonaSkillContext([skill], []); expect(context).toContain('缺少配套资料 Unit source'); expect(context).not.toContain('# Unit workflow');
     expect(resolvePersonaSkills([skill], [])[0].status).toBe('missing');
-    expect(resolvePersonaSkills([{ ...skill, resources: [{ title: 'Unit source', content: 'https://unit.invalid/source.md' }] }], [])[0].status).toBe('missing');
+    expect(resolvePersonaSkills([{ ...skill, resources: [{ title: 'Unit source', content: 'https://unit.invalid/source.md', required: true }] }], [])[0].status).toBe('missing');
+  });
+  it('treats extracted book titles and legacy unconfirmed entries as reference hints instead of mandatory documents', () => {
+    const skill = { ...importPersonaSkill(original), enabled: true, activation: 'always' as const };
+    const state = resolvePersonaSkills([skill], [])[0]; expect(state.status).toBe('loaded'); expect(state.missing).toEqual([]); expect(state.unresolved).toEqual(['Unit source']);
+    const context = buildPersonaSkillContext([skill], []); expect(context).toContain('# Unit workflow'); expect(context).toContain('未提供的引用线索：Unit source'); expect(context).toContain('不代表文件存在或已读取'); expect(context).not.toContain('（用户手动提供）：\n\n');
   });
   it('loads a complete manual skill and the actual resource text without replacing identity or world books', () => {
     const skill = { ...importPersonaSkill(original), enabled: true, resources: [{ title: 'Unit source', content: 'Actual unit source content.' }] };

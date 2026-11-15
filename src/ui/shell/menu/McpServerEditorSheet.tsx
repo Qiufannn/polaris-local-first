@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { buildMcpHandle } from '../../../engines/mcpHandle';
-import { resolveMcpToolCatalog, type McpResolvedToolDefinition } from '../../../engines/mcpRuntime';
+import { invokeMcpTool, resolveMcpToolCatalog, type McpResolvedToolDefinition } from '../../../engines/mcpRuntime';
 import { useI18n } from '../../../i18n/useI18n';
 import type { McpServerConfig, McpServerHeader, McpServerToolConfig, McpServerTransport } from '../../../types/domain';
 import { Icon } from '../../Icon';
@@ -8,6 +8,7 @@ import { McpSiteConnection } from './McpSiteConnection';
 import { MemorySourceConnection } from './MemorySourceConnection';
 import { GardenConnection } from './GardenConnection';
 import { isPublicGithubClientId } from '../../../engines/mcpAuth';
+import { originalHome, originalHomeOrigin } from '../../../native/originalHome';
 
 type McpServerEditorSheetProps = {
   open: boolean;
@@ -133,7 +134,8 @@ export function McpServerEditorSheet({
         servers: [draftServer],
         timeoutSeconds,
         retryDelaysMs: [],
-        includeDisabledTools: true
+        includeDisabledTools: true,
+        ...(authKind === 'original-home-session' ? { useCachedOnFailure: false } : {})
       });
       if (result.errors.length) {
         setTestState({ status: 'error', message: result.errors.join('\n') });
@@ -144,7 +146,14 @@ export function McpServerEditorSheet({
         return;
       }
 
+      if (authKind === 'original-home-session') {
+        const read = result.tools.find(tool => tool.toolName === 'home_list');
+        if (!read) throw new Error('原小屋没有返回记录读取工具，未启用。');
+        const verified = await invokeMcpTool({ tool: read, argumentsObject: { limit: 1 }, timeoutSeconds });
+        if (!verified.ok || verified.isError) throw new Error('原小屋记录未读取成功，未启用写入工具。');
+      }
       setTools((current) => mergeDiscoveredTools(current, result.tools));
+      if (authKind === 'original-home-session') { setOauthReady(true); setIsActive(true); }
       const toolNames = result.tools.map((tool) => tool.toolName).slice(0, 4).join(t('settings.mcp.testToolSeparator'));
       const summary = result.tools.length > 4
         ? t('settings.mcp.testToolSummaryMore', { count: result.tools.length })
@@ -268,7 +277,7 @@ export function McpServerEditorSheet({
           <label>
             连接方式
             <select value={authKind ?? ''} onChange={event => {
-              const next = ['sites-memory-oauth', 'notion-memory-oauth', 'github-memory-device', 'garden-oauth'].includes(event.target.value) ? event.target.value as McpServerConfig['authKind'] : undefined;
+              const next = ['sites-memory-oauth', 'notion-memory-oauth', 'github-memory-device', 'garden-oauth', 'original-home-session'].includes(event.target.value) ? event.target.value as McpServerConfig['authKind'] : undefined;
               setAuthKind(next); setOauthReady(false); setTestState({ status: 'idle' });
               if (next) { setTransport('streamable-http'); setTools([]); }
               if (next === 'notion-memory-oauth') setUrl('https://mcp.notion.com/mcp');
@@ -278,6 +287,7 @@ export function McpServerEditorSheet({
               <option value="github-memory-device">GitHub 主记忆（设备登录，先验证读取）</option>
               <option value="notion-memory-oauth">Notion 日记（官方网页登录）</option>
               <option value="garden-oauth">花园（官方网页登录，原账号）</option>
+              <option value="original-home-session">原小屋（App 内网页登录会话）</option>
               <option value="sites-memory-oauth">小家展示 MCP（实验性，只读）</option>
             </select>
           </label>
@@ -299,6 +309,7 @@ export function McpServerEditorSheet({
           />}
           {authKind === 'garden-oauth' && <GardenConnection server={server?.authKind === authKind && server.url.trim() === url.trim() ? server : null}
             onReady={setOauthReady} onEnable={() => setIsActive(true)} onTools={setTools} />}
+          {authKind === 'original-home-session' && <section className="mcp-test-panel"><strong>原网页与 AI 共用小屋记录</strong><p>先在原小屋网页里登录，再测试连接。连接只用于同一网页的生活记录和只读记忆，不会自动上传聊天原文或更改 GitHub 主记忆。</p><button type="button" className="mcp-btn secondary" onClick={() => { const origin = originalHomeOrigin(url); if (!origin) { setTestState({ status: 'error', message: '请填写原小屋 HTTPS /mcp 地址。' }); return; } void originalHome.open({ url: origin }).catch(() => setTestState({ status: 'error', message: '原小屋尚未打开，请使用 Android 更新版。' })); }}>打开原小屋并登录</button></section>}
 
           <div className={`mcp-test-panel ${testState.status !== 'idle' ? `mcp-test-panel--${testState.status}` : ''}`}>
             <button

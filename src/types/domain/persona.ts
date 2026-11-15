@@ -197,7 +197,7 @@ export interface PersonaSkill {
   source: string;
   enabled: boolean;
   activation: 'always' | 'manual';
-  resources: { title: string; content: string }[];
+  resources: { title: string; content: string; required?: boolean }[];
 }
 
 export interface PersonaAdvancedSettings {

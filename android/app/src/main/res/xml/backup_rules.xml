@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Website cookies stay in this installation. Website-local books/audio use their own exports. -->
+    <exclude domain="root" path="app_webview/" />
+</full-backup-content>

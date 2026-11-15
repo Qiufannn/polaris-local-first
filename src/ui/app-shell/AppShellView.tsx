@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { HomeScreen } from './HomeScreen';
 import { AppShellOverlays } from '../AppShellOverlays';
 import { AppReplyNotificationStack } from './AppReplyNotificationStack';
 import { DesktopAppShellFrame } from './DesktopAppShellFrame';
@@ -10,6 +11,7 @@ import type { useAppShellViewController } from './useAppShellViewController';
 type AppShellViewProps = ReturnType<typeof useAppShellViewController>;
 
 export function AppShellView({
+  home,
   activeWorld,
   shellWorld,
   activeChatDensity,
@@ -99,7 +101,7 @@ export function AppShellView({
             onRetry={() => retryWorldFrame('chat')}
           >
             <Suspense fallback={<WorldFrameFallback world="chat" />}>
-              <ChatWorld {...chatWorldProps} />
+              <ChatWorld {...chatWorldProps} shell={{ ...chatWorldProps.shell, isActiveWorld: !home.visible && chatWorldProps.shell.isActiveWorld }} />
             </Suspense>
           </WorldFrameBoundary>
         </div>
@@ -149,23 +151,27 @@ export function AppShellView({
       <div className="theme-transition-veil" aria-hidden="true" />
       <div className="collaborator-transition-veil" aria-hidden="true" />
       {!startupThemeReady ? <div className="startup-theme-veil" aria-hidden="true" /> : null}
+      {home.visible && <HomeScreen persona={home.persona} backgroundUrl={backgroundUrl} onEnter={home.enter} onOpenSettings={collectionOpenSettings} />}
+      <div className="application-workspace" hidden={home.visible} aria-hidden={home.visible}>
       {showDesktopSidebar ? (
         <DesktopAppShellFrame
           desktopSidebarProps={{
             ...desktopSidebarProps,
             collapsed: effectiveDesktopSidebarCollapsed,
-            onToggleCollapsed: toggleDesktopSidebarCollapsed
+            onToggleCollapsed: toggleDesktopSidebarCollapsed,
+            onOpenHome: home.open
           }}
         >
           {worldStack}
         </DesktopAppShellFrame>
       ) : (
-        <MobileAppShellFrame topbarProps={topbarProps}>
+        <MobileAppShellFrame topbarProps={{ ...topbarProps, actions: { ...topbarProps.actions, onOpenHome: home.open } }}>
           {worldStack}
         </MobileAppShellFrame>
       )}
+      </div>
 
-      <AppReplyNotificationStack {...replyNotificationProps} />
+      {!home.visible && <AppReplyNotificationStack {...replyNotificationProps} />}
       <PersistenceReadFailureNotice
         notice={persistenceReadFailureNotice}
         onRetry={onRetryPersistenceReadFailure}

@@ -9,6 +9,7 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { mcpSiteAuth } from '../native/mcpSiteAuth';
 import { memorySources } from '../native/memorySources';
+import { originalHome } from '../native/originalHome';
 import {
   createRpcId,
   ensureSuccessMessage,
@@ -84,6 +85,13 @@ async function requestMcpHttp(
   init: RequestInit,
   options: McpTransportOptions
 ) {
+  if (options.server.authKind === 'original-home-session') {
+    if (options.server.transport !== 'streamable-http' || url !== options.server.url) throw new Error('原小屋连接不允许更换目标地址或匿名回退。');
+    const incoming = new Headers(init.headers), headers: Record<string, string> = {};
+    for (const key of ['Mcp-Session-Id', 'MCP-Protocol-Version']) { const value = incoming.get(key); if (value) headers[key] = value; }
+    const result = await originalHome.request({ url, method: init.method ?? 'POST', body: typeof init.body === 'string' ? init.body : '', headers });
+    return new Response(result.data || null, { status: result.status, headers: { 'Content-Type': 'application/json' } });
+  }
   if (options.server.authKind === 'notion-memory-oauth' || options.server.authKind === 'github-memory-device' || options.server.authKind === 'garden-oauth') {
     if (options.server.transport !== 'streamable-http' || url !== options.server.url) throw new Error('记忆连接不支持更换目标地址或匿名回退。');
     const incoming = new Headers(init.headers); const headers: Record<string, string> = {};
