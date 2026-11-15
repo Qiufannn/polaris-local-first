@@ -25,6 +25,10 @@
 
 修复将“不要声称已保存”等报告约束从写入允许/禁止判断中分别排除，它本身也不能授予写入权限；真正的“不要写日记”继续优先拒绝。增加整段原验收文字、中文/英文报告约束、单独报告约束不能授权，以及后续真正禁止写入仍生效的回归。Notion 拒绝提示也与 GitHub 主记忆提示区分。新手机写回验收仍待完成。
 
+修复交付为 **18 版**，源码 `a81585d26e4dab764806b7254525ebd3ae39bc20`。[CI #18](https://github.com/Qiufannn/polaris-local-first/actions/runs/43695315213) 四作业全部通过；完整 Web 495 文件 / 3166 项测试，原生 artifact 的 XML 独立核对 82 项、0 failures / errors / skipped。相关本地定向 49 项通过。17 版被后续同句禁止指令补测取代并取消，不作为安装交付。
+
+[个人签名包 polaris-android-signed-18-1](https://github.com/Qiufannn/polaris-local-first/actions/runs/43695315213/artifacts/14153844587)：ZIP SHA256 `da12e1f2f655eaeb688262b3e1a1d067765e04ac8c93ef9ff09580bba949509f`，APK SHA256 `1ce6aa4ef41bb15eafda332176d7f6d61135f61edca2a2f26d11e3572a943880`。已核验与原个人证书一致、versionCode 18、构建源码/回执、与 CI unsigned APK 原条目字节一致，以及 APK 实际包含修正后的请求判断。覆盖安装后沿用原连接与目录设置，再真实执行原验收请求；当前只确认此误拦截已修复，不宣称 Notion 手机写回已验收。
+
 合成原生测试覆盖范围、双层创建、同日追加、旧文保留、重复日期、重启去重、结果丢失、待核验阻止改写重试、回读异常、磁盘错误及版本兼容。Web 测试覆盖真实用户意图、否定/引用/后台拒绝、调用标志隔离和未验证结果显错。真实手机 Notion 写回尚待本人安装后测试；不能用连接器在此窗口创建目录来冒充 Polaris 已写入成功。
 
 ### 16 版构建交付
