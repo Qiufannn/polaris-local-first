@@ -19,6 +19,7 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
     const stamp = ++version.current; setConnected(false); onReady(false); setMessage(''); setCode(''); setBusy(''); activeLogin.current = false;
     if (available && address) void memorySources.status(address).then(status => {
       if (stamp !== version.current) return; setConnected(status.connected); onReady(status.connected);
+      if (status.pending && status.userCode) { setCode(status.userCode); setMessage('还有一次待接收的 GitHub 授权；若网页已批准，点“继续接收 GitHub 授权结果”，无需再次批准。'); }
     }).catch(error => { if (stamp === version.current) setMessage(error instanceof Error ? error.message : '无法读取本机连接。'); });
     return () => { version.current++; if (activeLogin.current && address) void memorySources.cancel(address).catch(() => undefined); };
   }, [key, available, onReady]);
@@ -26,7 +27,12 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
   async function run(kind: string, action: (valid: () => boolean) => Promise<void>) {
     const stamp = version.current, valid = () => stamp === version.current;
     setBusy(kind); setMessage(''); activeLogin.current = kind === 'login';
-    try { await action(valid); } catch (error) { if (valid()) setMessage(error instanceof Error ? error.message : '记忆来源连接未完成。'); }
+    try { await action(valid); } catch (error) {
+      if (valid()) setMessage(error instanceof Error ? error.message : '记忆来源连接未完成。');
+      if (kind === 'login' && github && address) {
+        try { const status = await memorySources.status(address); if (valid() && !status.pending) setCode(''); } catch { /* Preserve the original safe error. */ }
+      }
+    }
     finally { if (valid()) { setBusy(''); activeLogin.current = false; } }
   }
   async function connectedNow() { setConnected(true); onReady(true); onEnable(); setCode(''); setMessage('登录完成，请验证真实内容后保存。'); }
@@ -46,9 +52,10 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
               await new Promise(resolve => setTimeout(resolve, Math.max(5, seconds) * 1000)); if (!valid()) return;
               const result = await memorySources.githubPoll(address); if (!valid()) return;
               if (result.state === 'connected') { await connectedNow(); return; } seconds = result.pollAfterSeconds;
+              setMessage(result.message || '仍在等待 GitHub 返回授权结果；网页已批准的话，保持此页即可，不用再次授权。');
             }
           } else { const status = await memorySources.notionLogin(address); if (valid() && status.connected) await connectedNow(); }
-        })}>{github ? '连接 GitHub（设备登录）' : '连接 Notion（网页登录）'}</button>
+        })}>{github ? code && !busy ? '继续接收 GitHub 授权结果' : '连接 GitHub（设备登录）' : '连接 Notion（网页登录）'}</button>
         {busy === 'login' && <button type="button" className="mcp-btn secondary" onClick={() => {
           version.current++; activeLogin.current = false; setBusy(''); setCode(''); void memorySources.cancel(address).catch(() => undefined);
         }}>取消登录</button>}

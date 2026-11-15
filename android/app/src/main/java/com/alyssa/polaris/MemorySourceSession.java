@@ -19,6 +19,7 @@ final class MemorySourceSession {
     private volatile JSONObject pending;
     private long pollAt, pendingUntil;
     private int interval;
+    private int responseFailures;
     private final AtomicLong generation = new AtomicLong();
     private final Object authorizationState = new Object();
     long generation() { return generation.get(); }
@@ -40,7 +41,9 @@ final class MemorySourceSession {
         JSONObject c = connection();
         boolean connected = c != null && !c.optString("access_token").isEmpty()
             && (c.optLong("expires_at") == 0 || c.optLong("expires_at") > clock.getAsLong() || !c.optString("refresh_token").isEmpty());
-        return new JSONObject().put("connected", connected).put("provider", kind).put("pending", pending != null);
+        JSONObject status = new JSONObject().put("connected", connected).put("provider", kind).put("pending", pending != null && clock.getAsLong() < pendingUntil);
+        if (status.getBoolean("pending")) status.put("userCode", pending.optString("user_code")).put("pollAfterSeconds", interval);
+        return status;
     }
     private MemorySourceHttp.Result post(String url, Map<String, String> fields) throws Exception {
         return http.send(url, "POST", ChatGptOAuth.form(fields), "application/x-www-form-urlencoded", null, new HashMap<>());
@@ -90,18 +93,32 @@ final class MemorySourceSession {
         } }
     }
     synchronized JSONObject githubStart() throws Exception {
+        if (pending != null && clock.getAsLong() < pendingUntil) return githubCode();
         long started = generation.get();
         Map<String, String> fields = new LinkedHashMap<>(); fields.put("client_id", clientId); fields.put("scope", "offline_access");
-        MemorySourceHttp.Result result = post("https://github.com/login/device/code", fields);
-        JSONObject data = new JSONObject(result.body);
+        MemorySourceHttp.Result result;
+        try { result = post("https://github.com/login/device/code", fields); }
+        catch (java.io.IOException network) { throw new Exception("GitHub 授权码请求未完成（" + MemorySourceOAuth.category(network) + "），请稍后重试。"); }
+        JSONObject data = MemorySourceOAuth.github(result);
         if (result.status != 200 || data.optString("device_code").isEmpty() || !data.optString("user_code").matches("[A-Z0-9-]{6,20}")
             || !"https://github.com/login/device".equals(data.optString("verification_uri")) || data.optLong("expires_in") <= 0) throw new Exception("授权设备登录未启动，请检查公开 Client ID 和 Enable Device Flow。");
         synchronized (authorizationState) {
             if (started != generation.get()) throw new Exception("授权设备登录已取消。");
-            pending = data; interval = Math.max(5, Math.min(60, data.optInt("interval", 5))); pollAt = clock.getAsLong() + interval * 1000L;
+            pending = data; interval = Math.max(5, Math.min(900, data.optInt("interval", 5))); pollAt = clock.getAsLong() + interval * 1000L;
             pendingUntil = clock.getAsLong() + Math.min(900, data.getLong("expires_in")) * 1000L;
+            responseFailures = 0;
         }
+        return githubCode();
+    }
+    private JSONObject githubCode() throws Exception {
+        JSONObject data = pending;
+        if (data == null) throw new Exception("GitHub 授权码已取消，请重新连接。");
         return new JSONObject().put("userCode", data.getString("user_code")).put("verificationUri", data.getString("verification_uri")).put("pollAfterSeconds", interval);
+    }
+    private JSONObject retryGithub(long started, JSONObject device, String message, int minimum) throws Exception {
+        if (started != generation.get() || pending != device) throw new Exception("授权设备登录已取消。");
+        interval = Math.max(interval, Math.max(5, minimum)); pollAt = clock.getAsLong() + interval * 1000L;
+        return new JSONObject().put("state", "pending").put("pollAfterSeconds", interval).put("message", message);
     }
     synchronized JSONObject githubPoll() throws Exception {
         long started = generation.get(); JSONObject device = pending;
@@ -109,12 +126,33 @@ final class MemorySourceSession {
         if (clock.getAsLong() < pollAt) return new JSONObject().put("state", "pending").put("pollAfterSeconds", interval);
         pollAt = clock.getAsLong() + interval * 1000L;
         Map<String, String> fields = new LinkedHashMap<>(); fields.put("client_id", clientId); fields.put("device_code", device.getString("device_code")); fields.put("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
-        MemorySourceHttp.Result result = post("https://github.com/login/oauth/access_token", fields); JSONObject token = new JSONObject(result.body);
+        MemorySourceHttp.Result result;
+        try { result = post("https://github.com/login/oauth/access_token", fields); }
+        catch (java.io.IOException network) {
+            return retryGithub(started, device, "GitHub 授权结果暂未收到（" + MemorySourceOAuth.category(network) + "），正在自动重试；已在网页批准的不用再次授权。", Math.min(60, interval * 2));
+        }
         if (started != generation.get() || pending != device) throw new Exception("授权设备登录已取消。");
+        if (result.status == 408 || result.status == 429 || result.status >= 500) {
+            int after = 0; try { after = Integer.parseInt(result.headers.getOrDefault("retry-after", "0")); } catch (NumberFormatException ignored) {}
+            return retryGithub(started, device, "GitHub 授权服务暂未返回结果（HTTP " + result.status + "），正在自动重试。", Math.max(Math.min(900, after), Math.min(60, interval * 2)));
+        }
+        JSONObject token;
+        try { token = MemorySourceOAuth.github(result); responseFailures = 0; }
+        catch (Exception malformed) {
+            if (++responseFailures <= 3) return retryGithub(started, device, MemorySourceOAuth.safe(malformed) + " 正在重试，不用再次网页授权。", Math.min(60, interval * 2));
+            throw malformed;
+        }
         String error = token.optString("error");
         if ("authorization_pending".equals(error)) return new JSONObject().put("state", "pending").put("pollAfterSeconds", interval);
-        if ("slow_down".equals(error)) { interval = Math.min(60, Math.max(interval + 5, token.optInt("interval"))); pollAt = clock.getAsLong() + interval * 1000L; return new JSONObject().put("state", "pending").put("pollAfterSeconds", interval); }
-        if (result.status != 200 || !error.isEmpty()) { pending = null; throw new Exception("授权设备登录未批准或已失效，请重新连接。"); }
+        if ("slow_down".equals(error)) { interval = Math.min(900, Math.max(interval + 5, token.optInt("interval"))); pollAt = clock.getAsLong() + interval * 1000L; return new JSONObject().put("state", "pending").put("pollAfterSeconds", interval); }
+        if (result.status != 200 || !error.isEmpty()) {
+            pending = null;
+            if ("expired_token".equals(error)) throw new Exception("GitHub 授权码已过期，请重新连接获取新验证码。");
+            if ("access_denied".equals(error)) throw new Exception("GitHub 授权未获批准，请本人确认后重新连接。");
+            if ("incorrect_client_credentials".equals(error) || "invalid_client".equals(error)) throw new Exception("GitHub 授权客户端不匹配，请核对公开 Client ID。");
+            if ("device_flow_disabled".equals(error)) throw new Exception("GitHub 授权应用尚未开启 Enable Device Flow。");
+            throw new Exception("GitHub 授权结果未获接受（HTTP " + result.status + "），请重新连接；不是 ChatGPT 登录失败。");
+        }
         synchronized (authorizationState) {
             if (started != generation.get() || pending != device) throw new Exception("授权设备登录已取消。");
             saveToken(token, clientId, null, false); pending = null; generation.incrementAndGet();
@@ -133,7 +171,8 @@ final class MemorySourceSession {
         if (MemorySourcePolicy.NOTION.equals(kind)) fields.put("resource", resource);
         String endpoint = MemorySourcePolicy.NOTION.equals(kind) ? "https://mcp.notion.com/token" : "https://github.com/login/oauth/access_token";
         long refreshingGeneration = generation.get();
-        MemorySourceHttp.Result result = post(endpoint, fields); JSONObject next = new JSONObject(result.body);
+        MemorySourceHttp.Result result = post(endpoint, fields);
+        JSONObject next = MemorySourcePolicy.GITHUB.equals(kind) ? MemorySourceOAuth.github(result) : new JSONObject(result.body);
         if (refreshingGeneration != generation.get()) throw new Exception("授权状态已改变，未保存刷新结果。");
         if (result.status != 200 || next.has("error")) {
             if (result.status < 500) { c.remove("access_token"); c.remove("refresh_token"); JSONObject db = store.load(); db.put("connection", c); store.save(db); generation.incrementAndGet(); }

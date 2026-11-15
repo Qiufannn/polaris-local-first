@@ -54,6 +54,8 @@ final class MemorySourceHttp {
             Map<String, String> headers = new HashMap<>();
             String contentType = http.getContentType();
             if (contentType != null) headers.put("content-type", contentType);
+            String retryAfter = http.getHeaderField("Retry-After");
+            if (retryAfter != null && retryAfter.matches("[0-9]{1,4}")) headers.put("retry-after", retryAfter);
             String session = http.getHeaderField("Mcp-Session-Id");
             if (session != null && session.length() <= 512 && !session.contains("\r") && !session.contains("\n")) headers.put("mcp-session-id", session);
             if (status >= 300 && status < 400) throw new Exception("授权服务返回重定向，本次未转发凭证。");

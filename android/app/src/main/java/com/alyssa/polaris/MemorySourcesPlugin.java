@@ -45,16 +45,16 @@ public class MemorySourcesPlugin extends Plugin {
         });
     }
     @PluginMethod public void status(PluginCall call) {
-        executor.execute(() -> { try { call.resolve(JSObject.fromJSONObject(session(call).status())); } catch (Exception e) { call.reject(ChatGptAuthPlugin.safeMessage(e)); } });
+        executor.execute(() -> { try { call.resolve(JSObject.fromJSONObject(session(call).status())); } catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); } });
     }
     @PluginMethod public void githubStart(PluginCall call) {
         executor.execute(() -> { try {
             MemorySourceSession s = session(call); if (!MemorySourcePolicy.GITHUB.equals(s.kind)) throw new Exception("授权来源不是 GitHub。");
             call.resolve(JSObject.fromJSONObject(s.githubStart()));
-        } catch (Exception e) { call.reject(ChatGptAuthPlugin.safeMessage(e)); } });
+        } catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); } });
     }
     @PluginMethod public void githubPoll(PluginCall call) {
-        executor.execute(() -> { try { call.resolve(JSObject.fromJSONObject(session(call).githubPoll())); } catch (Exception e) { call.reject(ChatGptAuthPlugin.safeMessage(e)); } });
+        executor.execute(() -> { try { call.resolve(JSObject.fromJSONObject(session(call).githubPoll())); } catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); } });
     }
     @PluginMethod public void cancel(PluginCall call) {
         try { MemorySourceSession selected = session(call); selected.cancel(); if (selected == loginSession && listener != null) listener.close(); } catch (Exception ignored) {}
@@ -62,13 +62,13 @@ public class MemorySourcesPlugin extends Plugin {
     }
     @PluginMethod public void disconnect(PluginCall call) {
         try { session(call).cancel(); } catch (Exception ignored) {}
-        executor.execute(() -> { try { session(call).disconnect(); call.resolve(new JSObject().put("revocationConfirmed", false)); } catch (Exception e) { call.reject(ChatGptAuthPlugin.safeMessage(e)); } });
+        executor.execute(() -> { try { session(call).disconnect(); call.resolve(new JSObject().put("revocationConfirmed", false)); } catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); } });
     }
     @PluginMethod public void notionLogin(PluginCall call) {
         synchronized (this) {
             if (loginSession != null) { call.reject("授权正在进行，请先完成或取消。"); return; }
             try { loginSession = session(call); if (!MemorySourcePolicy.NOTION.equals(loginSession.kind)) { loginSession = null; throw new Exception("授权来源不是 Notion。"); } }
-            catch (Exception e) { call.reject(ChatGptAuthPlugin.safeMessage(e)); return; }
+            catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); return; }
         }
         final MemorySourceSession selected = loginSession;
         final long generation = selected.generation();
@@ -90,7 +90,7 @@ public class MemorySourcesPlugin extends Plugin {
                 MemorySourcePolicy.notionIssuer(values);
                 selected.notionExchange(values.get("code"), client, redirect, verifier, generation);
                 call.resolve(JSObject.fromJSONObject(selected.status()));
-            } catch (Exception e) { call.reject(ChatGptAuthPlugin.safeMessage(e)); }
+            } catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); }
             finally { if (callback != null) callback.close(); listener = null; loginSession = null; }
         });
     }
@@ -113,6 +113,7 @@ public class MemorySourcesPlugin extends Plugin {
                     JSObject replyHeaders = new JSObject(); for (Map.Entry<String, String> h : result.headers.entrySet()) replyHeaders.put(h.getKey(), h.getValue());
                     call.resolve(new JSObject().put("status", result.status).put("data", data).put("headers", replyHeaders));
                 } else {
+                    if (!s.status().getBoolean("connected")) throw new Exception("尚未连接 GitHub，请先完成设备登录，再验证真实记忆内容。");
                     JSONObject result;
                     String operation = rpc.optString("method");
                     if ("initialize".equals(operation)) result = new JSONObject().put("protocolVersion", "2025-03-26").put("capabilities", new JSONObject().put("tools", new JSONObject())).put("serverInfo", new JSONObject().put("name", "Polaris GitHub memory adapter").put("version", "1"));
@@ -126,7 +127,7 @@ public class MemorySourcesPlugin extends Plugin {
                     }
                     call.resolve(new JSObject().put("status", 200).put("data", new JSONObject().put("jsonrpc", "2.0").put("id", rpc.opt("id")).put("result", result).toString()).put("headers", new JSObject()));
                 }
-            } catch (Exception e) { call.reject(ChatGptAuthPlugin.safeMessage(e)); }
+            } catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); }
         });
     }
     @Override protected void handleOnDestroy() {

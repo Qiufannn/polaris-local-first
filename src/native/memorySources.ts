@@ -1,12 +1,12 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 export type MemoryAddress = { serverId: string; url: string; authKind: 'notion-memory-oauth' | 'github-memory-device'; publicClientId?: string };
-export type MemoryStatus = { connected: boolean; provider: string; pending?: boolean };
+export type MemoryStatus = { connected: boolean; provider: string; pending?: boolean; userCode?: string; pollAfterSeconds?: number };
 type RequestArgs = MemoryAddress & { method: string; body: string; headers?: Record<string, string> };
 type Bridge = {
   status(args: MemoryAddress): Promise<MemoryStatus>;
   notionLogin(args: MemoryAddress): Promise<MemoryStatus>;
   githubStart(args: MemoryAddress): Promise<{ userCode: string; verificationUri: string; pollAfterSeconds: number }>;
-  githubPoll(args: MemoryAddress): Promise<{ state: 'connected' | 'pending'; pollAfterSeconds: number }>;
+  githubPoll(args: MemoryAddress): Promise<{ state: 'connected' | 'pending'; pollAfterSeconds: number; message?: string }>;
   openGithub(): Promise<void>;
   cancel(args: MemoryAddress): Promise<void>;
   disconnect(args: MemoryAddress): Promise<{ revocationConfirmed: boolean }>;
