@@ -45,3 +45,12 @@ GitHub 仍为主记忆，Notion 为正式日记，北极星日记仍走已有独
 - 390px 浏览器逐字加载原 HTML/资源，核对完整三个原页面、原翻页与账本入口；准确的原生聊天监听注入前后 DOM/CSS 相同，仅原聊天入口被截获。私密截图与网页素材不进入公开仓库。
 - 完整 AppShell 联合测试以合成原生桥接响应核对冷启动/重载先打开原网址、原聊天入口进入现有会话、返回原小屋保留草稿、实际读取后才启用 AI、读取失败与关闭网页仍可聊天。
 - Web 与原生自动检查、生产构建及 CI/签名凭据在最终交付回执记录；不把模拟桥接当成真实 Android 站点登录成功。
+
+## 22 版交付凭据
+
+- 代码 `dd8e73e3b7d0ede87fd43458d1d233aa2232c516`；[CI #22](https://github.com/Qiufannn/polaris-local-first/actions/runs/43749438273) 四作业成功。完整 Web 503 文件 / 3210 测试；主、额外和 Worker 类型检查、生产构建通过。unsigned artifact 的 XML 独立核对原生 92 项，0 failures / errors / skipped。
+- [个人签名包 polaris-android-signed-22-1](https://github.com/Qiufannn/polaris-local-first/actions/runs/43749438273/artifacts/14176195554)。ZIP SHA256 `ded200c9234705f9fb48f9e1694b585f968d6250e27de3ae7eb7d1c40669d786` 与服务端 digest 一致；APK SHA256 `bb4a7b244b80e145d11b0c6b981f574060756e2c1b6864cfa3d1ed3bb8665b75`，16359518 字节。
+- 包名 `com.alyssa.polaris`、versionCode 22、个人证书 SHA256 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`、APK v3 签名实际核验通过。与同次 unsigned APK 的 1231 个条目逐字节一致，仅新增三项签名元数据；101 张图库原字节与 21 版相同。
+- 新原网页启动、全局返回家园、只读验证后连接、可选资料线索的 Web 代码，以及独立 Activity/原生传输/原聊天跳转代码已核对入包。旧聊天内固定六项入口已移除；未嵌入私密网址或复制原小屋素材。
+- 仓库外原站原资源显示/同后台双向读写及完整 AppShell 合成桥接检查均通过；这些验证无模型调用、无本人服务写入，不能冒充实机登录成功。真实 App 内登录和一条测试记录写后回读仍待本人安装验收。
+- 覆盖安装，不卸载。只推送定制分支，未合并 main、未发布 Release、未重新部署原网站；未索取密码、API Key、token 或签名密钥。没有额外扩展 Aru 功能范围。
