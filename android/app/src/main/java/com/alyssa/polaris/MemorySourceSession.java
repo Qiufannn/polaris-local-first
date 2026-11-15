@@ -102,7 +102,7 @@ final class MemorySourceSession {
         if (response.has("resource") && !resource.equals(response.optString("resource"))) throw new Exception("授权服务返回了其他资源的凭证。");
         if (response.has("expires_in") && response.optLong("expires_in") <= 0) throw new Exception("授权凭证有效期不正确。");
         c.put("kind", kind).put("resource", resource).put("client_id", registeredClient).put("access_token", response.getString("access_token"));
-        c.put("expires_at", response.has("expires_in") ? clock.getAsLong() + Math.min(response.getLong("expires_in"), 86400) * 1000 : 0);
+        c.put("expires_at", response.has("expires_in") ? clock.getAsLong() + Math.min(response.getLong("expires_in"), MemorySourcePolicy.GARDEN.equals(kind) ? 31536000 : 86400) * 1000 : 0);
         if (response.has("refresh_token")) c.put("refresh_token", response.getString("refresh_token"));
         if (redirect != null) c.put("redirect_uri", redirect);
         JSONObject database = store.load(); database.put("connection", c); store.save(database);
@@ -114,11 +114,11 @@ final class MemorySourceSession {
     synchronized String registerNotion(String redirect) throws Exception {
         JSONObject c = connection();
         if (c != null && redirect.equals(c.optString("redirect_uri")) && !c.optString("client_id").isEmpty()) return c.getString("client_id");
-        JSONObject metadata = new JSONObject().put("client_name", "Polaris Android Memory")
-            .put("redirect_uris", new JSONArray().put(redirect)).put("grant_types", new JSONArray().put("authorization_code").put("refresh_token"))
+        JSONObject metadata = new JSONObject().put("client_name", MemorySourcePolicy.GARDEN.equals(kind) ? "Polaris Android Garden" : "Polaris Android Memory")
+            .put("redirect_uris", new JSONArray().put(redirect)).put("grant_types", MemorySourcePolicy.GARDEN.equals(kind) ? new JSONArray().put("authorization_code") : new JSONArray().put("authorization_code").put("refresh_token"))
             .put("response_types", new JSONArray().put("code")).put("token_endpoint_auth_method", "none");
-        MemorySourceHttp.Result result = http.send("https://mcp.notion.com/register", "POST", metadata.toString(), "application/json", null, new HashMap<>());
-        if (result.status != 200 && result.status != 201) throw new Exception("授权服务未接受 Notion 公共客户端注册（HTTP " + result.status + "）。");
+        MemorySourceHttp.Result result = http.send(MemorySourcePolicy.oauthEndpoint(kind, "register"), "POST", metadata.toString(), "application/json", null, new HashMap<>());
+        if (result.status != 200 && result.status != 201) throw new Exception("授权服务未接受 " + (MemorySourcePolicy.GARDEN.equals(kind) ? "花园" : "Notion") + " 公共客户端注册（HTTP " + result.status + "）。");
         JSONObject registered = new JSONObject(result.body);
         String id = registered.optString("client_id");
         if (id.isEmpty() || id.length() > 256 || ChatGptOAuth.DYNAMIC_CLIENT.equals(id) || !"none".equals(registered.optString("token_endpoint_auth_method", "none"))) throw new Exception("授权服务未提供支持的公共客户端。");
@@ -132,8 +132,8 @@ final class MemorySourceSession {
     void notionExchange(String code, String registeredClient, String redirect, String verifier, long expectedGeneration) throws Exception {
         Map<String, String> fields = new LinkedHashMap<>(); fields.put("grant_type", "authorization_code"); fields.put("client_id", registeredClient);
         fields.put("code", code); fields.put("redirect_uri", redirect); fields.put("code_verifier", verifier); fields.put("resource", resource);
-        MemorySourceHttp.Result result = post("https://mcp.notion.com/token", fields);
-        if (result.status != 200) throw new Exception("授权码兑换未完成（Notion HTTP " + result.status + "），请重新连接。");
+        MemorySourceHttp.Result result = post(MemorySourcePolicy.oauthEndpoint(kind, "token"), fields);
+        if (result.status != 200) throw new Exception("授权码兑换未完成（" + (MemorySourcePolicy.GARDEN.equals(kind) ? "花园" : "Notion") + " HTTP " + result.status + "），请重新连接。");
         synchronized (this) { synchronized (authorizationState) {
             if (generation.get() != expectedGeneration) throw new Exception("授权已取消，未替换原连接。");
             saveToken(new JSONObject(result.body), registeredClient, redirect, false); generation.incrementAndGet();
@@ -232,8 +232,8 @@ final class MemorySourceSession {
         if ((!force || (rejected != null && !ChatGptOAuth.same(rejected, token))) && (c.optLong("expires_at") == 0 || c.optLong("expires_at") > clock.getAsLong() + 60000)) return token;
         if (c.optString("refresh_token").isEmpty()) throw new Exception("授权已到期，请重新连接此来源。");
         Map<String, String> fields = new LinkedHashMap<>(); fields.put("client_id", c.getString("client_id")); fields.put("grant_type", "refresh_token"); fields.put("refresh_token", c.getString("refresh_token"));
-        if (MemorySourcePolicy.NOTION.equals(kind)) fields.put("resource", resource);
-        String endpoint = MemorySourcePolicy.NOTION.equals(kind) ? "https://mcp.notion.com/token" : "https://github.com/login/oauth/access_token";
+        if (MemorySourcePolicy.browserSource(kind)) fields.put("resource", resource);
+        String endpoint = MemorySourcePolicy.browserSource(kind) ? MemorySourcePolicy.oauthEndpoint(kind, "token") : "https://github.com/login/oauth/access_token";
         long refreshingGeneration = generation.get();
         MemorySourceHttp.Result result = post(endpoint, fields);
         JSONObject next = MemorySourcePolicy.GITHUB.equals(kind) ? MemorySourceOAuth.github(result) : new JSONObject(result.body);
@@ -250,7 +250,7 @@ final class MemorySourceSession {
     MemorySourceHttp.Result sourceRequest(String url, String method, String body, Map<String, String> headers) throws Exception {
         java.net.URI target = new java.net.URI(url);
         boolean pinnedRead = "GET".equals(method) && target.getRawQuery() != null && target.getRawQuery().matches("(?i)ref=(?:[a-f0-9]{40}|[a-f0-9]{64})");
-        if (MemorySourcePolicy.NOTION.equals(kind) ? (!MemorySourcePolicy.NOTION_MCP.equals(url) || !("POST".equals(method) || "DELETE".equals(method)))
+        if (MemorySourcePolicy.browserSource(kind) ? (!endpoint.equals(url) || !("POST".equals(method) || "DELETE".equals(method)))
             : (!url.startsWith(endpoint + "/contents/") || !("GET".equals(method) || "PUT".equals(method)) || (target.getRawQuery() != null && !pinnedRead) || target.getRawFragment() != null)) throw new Exception("授权凭证不能用于其他来源。");
         if (MemorySourcePolicy.GITHUB.equals(kind)) {
             String prefix = new java.net.URI(endpoint).getPath() + "/contents/";

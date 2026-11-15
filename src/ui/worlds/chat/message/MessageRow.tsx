@@ -24,6 +24,8 @@ import { ToolActivityGroup } from './ToolActivityGroup';
 import { needsActivityAttention } from '../timeline/messageTimelineActivity';
 import { isProjectedCodeToolName } from './projectedCodeTools';
 import { buildAssistantSpeechText } from './messageSpeechText';
+import { isQuietMcpSuccess, isStickerAttachment, isStickerToolMessage, splitAssistantChatProse } from './naturalChatPresentation';
+import { TOOL_DRAFT_BLOCK_PATTERN } from '../../../../app/chat/chatMarkdownPatterns';
 import {
   buildVisibleToolProductCardMessageIds,
   nextToolProductCardActivationBlockedUntil,
@@ -124,7 +126,7 @@ function MessageRowComponent({
 }: MessageRowProps) {
   const { t } = useI18n();
   const isToolEvent = Boolean(message.toolInvocation);
-  const visibleReceipts = activityDisplay === 'hidden' ? toolMessages.filter(needsActivityAttention) : toolMessages;
+  const visibleReceipts = activityDisplay === 'full' ? toolMessages : toolMessages.filter(message => !isQuietMcpSuccess(message) && (activityDisplay !== 'hidden' || needsActivityAttention(message)));
   const isAssistantReply = message.role === 'assistant' && !isToolEvent;
   const isUserMessage = message.role === 'user' && !isToolEvent;
   const isPlainSystemMessage = message.role === 'system' && !isToolEvent;
@@ -200,6 +202,7 @@ function MessageRowComponent({
     const imagesNode = generatedImages.length > 0 ? (
       <MessageGeneratedImages
         attachments={generatedImages}
+        stickers={isStickerToolMessage(toolMessage)}
         onSave={(attachment) => actions.saveImageAttachment(toolMessage, attachment)}
       />
     ) : null;
@@ -322,10 +325,14 @@ function MessageRowComponent({
     openUserActionMenu();
   };
 
-  const messageBubble = (
+  const plainAttachments = (message.attachments ?? []).filter(attachment => !isStickerAttachment(attachment));
+  const stickerAttachments = (message.attachments ?? []).filter(isStickerAttachment);
+  const contentPieces = isAssistantReply && !state.editing && !isStreamingLike ? splitAssistantChatProse(message.content) : [message.content];
+  const hasBubbleContent = Boolean(state.editing || showStreamingPrelude || isStreamingLike || message.content.replace(TOOL_DRAFT_BLOCK_PATTERN, '').trim() || plainAttachments.length || resolvedCardReference || (showThinking && message.thinkingText?.trim()));
+  const messageBubble = hasBubbleContent || stickerAttachments.length ? (
     <div
       ref={bubbleFrameRef}
-      className={`bubble-frame ${message.role === 'assistant' ? 'assistant' : 'user'} ${state.editing ? 'editing' : ''} ${state.lifecycle} ${showStreamingPrelude ? 'streaming-prelude' : ''} ${userActionMenuOpen ? 'action-menu-open' : ''}`}
+      className={`bubble-frame ${message.role === 'assistant' ? 'assistant' : 'user'} ${state.editing ? 'editing' : ''} ${state.lifecycle} ${contentPieces.length > 1 ? 'chat-prose-split' : ''} ${showStreamingPrelude ? 'streaming-prelude' : ''} ${userActionMenuOpen ? 'action-menu-open' : ''}`}
       onContextMenu={handleBubbleContextMenu}
       onPointerDown={handleBubblePointerDown}
       onPointerUp={clearLongPressTimer}
@@ -333,7 +340,8 @@ function MessageRowComponent({
       onPointerLeave={clearLongPressTimer}
       onPointerMove={clearLongPressTimer}
     >
-      <div
+      {hasBubbleContent && contentPieces.map((content, pieceIndex) => <div
+        key={pieceIndex}
         className={`bubble ${message.role === 'assistant' ? 'assistant' : 'user'} ${state.editing ? 'editing' : ''}`}
       >
         {state.editing ? (
@@ -348,11 +356,11 @@ function MessageRowComponent({
         ) : (
           <>
             <ChatAttachmentStrip
-              attachments={message.attachments}
+              attachments={pieceIndex === 0 ? plainAttachments : []}
               tone="message"
               onSaveImage={(attachment) => actions.saveImageAttachment(message, attachment)}
             />
-            {resolvedCardReference ? (
+            {resolvedCardReference && pieceIndex === 0 ? (
               <MessageCardReference
                 reference={resolvedCardReference}
                 card={resolvedCodeCard}
@@ -372,7 +380,7 @@ function MessageRowComponent({
             ) : (
               <>
                 <MessageContent
-                  message={message}
+                  message={contentPieces.length === 1 ? message : { ...message, content, thinkingText: pieceIndex === 0 ? message.thinkingText : undefined, nativeToolCalls: pieceIndex === 0 ? message.nativeToolCalls : undefined }}
                   codeCardActionMode={state.codeCardActionMode}
                   isCodeExpanded={state.isCodeExpanded}
                   sandboxToolInvocation={sandboxToolInvocation}
@@ -390,7 +398,8 @@ function MessageRowComponent({
             )}
           </>
         )}
-      </div>
+      </div>)}
+      {!state.editing && stickerAttachments.length > 0 && <ChatAttachmentStrip attachments={stickerAttachments} tone="message" />}
       {isUserMessage && !state.editing && state.canEdit && userActionMenuOpen ? (
         <div className="user-bubble-action-menu" role="menu" aria-label={t('chat.messageActions.userMenuAria')}>
           <button type="button" className="user-bubble-action-btn" role="menuitem" onClick={() => { void copyUserMessage(); }}>
@@ -404,7 +413,7 @@ function MessageRowComponent({
         </div>
       ) : null}
     </div>
-  );
+  ) : null;
 
   return (
     <div

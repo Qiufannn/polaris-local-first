@@ -75,7 +75,7 @@ public class MemorySourcesPlugin extends Plugin {
     @PluginMethod public void notionLogin(PluginCall call) {
         synchronized (this) {
             if (loginSession != null) { call.reject("授权正在进行，请先完成或取消。"); return; }
-            try { loginSession = session(call); if (!MemorySourcePolicy.NOTION.equals(loginSession.kind)) { loginSession = null; throw new Exception("授权来源不是 Notion。"); } }
+            try { loginSession = session(call); if (!MemorySourcePolicy.browserSource(loginSession.kind)) { loginSession = null; throw new Exception("授权来源不支持网页登录。"); } }
             catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); return; }
         }
         final MemorySourceSession selected = loginSession;
@@ -90,12 +90,12 @@ public class MemorySourcesPlugin extends Plugin {
                 String state = ChatGptOAuth.randomValue(), verifier = ChatGptOAuth.randomValue();
                 if (generation != selected.generation()) throw new Exception("授权已取消。");
                 Map<String, String> fields = new LinkedHashMap<>(); fields.put("client_id", client); fields.put("redirect_uri", redirect);
-                fields.put("response_type", "code"); fields.put("scope", "default"); fields.put("state", state);
-                fields.put("code_challenge_method", "S256"); fields.put("code_challenge", ChatGptOAuth.challenge(verifier)); fields.put("resource", MemorySourcePolicy.NOTION_RESOURCE);
-                Uri uri = Uri.parse("https://mcp.notion.com/authorize?" + ChatGptOAuth.form(fields));
+                fields.put("response_type", "code"); fields.put("scope", MemorySourcePolicy.GARDEN.equals(selected.kind) ? "mcp" : "default"); fields.put("state", state);
+                fields.put("code_challenge_method", "S256"); fields.put("code_challenge", ChatGptOAuth.challenge(verifier)); fields.put("resource", selected.resource);
+                Uri uri = Uri.parse(MemorySourcePolicy.oauthEndpoint(selected.kind, "authorize") + "?" + ChatGptOAuth.form(fields));
                 getActivity().runOnUiThread(() -> { try { if (generation == selected.generation()) getActivity().startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception unavailable) { selected.cancel(); } });
                 Map<String, String> values = callback.await(state, client);
-                MemorySourcePolicy.notionIssuer(values);
+                MemorySourcePolicy.browserIssuer(selected.kind, values);
                 selected.notionExchange(values.get("code"), client, redirect, verifier, generation);
                 call.resolve(JSObject.fromJSONObject(selected.status()));
             } catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); }
@@ -109,12 +109,17 @@ public class MemorySourcesPlugin extends Plugin {
                 String method = call.getString("method", "POST");
                 Map<String, String> headers = new HashMap<>(); JSONObject supplied = call.getObject("headers", new JSObject());
                 for (String key : new String[] {"Mcp-Session-Id", "MCP-Protocol-Version"}) if (supplied.has(key)) headers.put(key, supplied.getString(key));
-                if ("DELETE".equals(method) && MemorySourcePolicy.NOTION.equals(s.kind)) {
+                if ("DELETE".equals(method) && MemorySourcePolicy.browserSource(s.kind)) {
                     MemorySourceHttp.Result result = s.authorized(s.endpoint, method, null, headers);
                     call.resolve(new JSObject().put("status", result.status).put("data", "").put("headers", new JSObject())); return;
                 }
                 if (!"POST".equals(method)) throw new Exception("授权工具请求方法不正确。");
                 JSONObject rpc = MemorySourcePolicy.rpc(s.kind, call.getString("body"));
+                if (MemorySourcePolicy.GARDEN.equals(s.kind)) {
+                    MemorySourceHttp.Result result = s.authorized(s.endpoint, "POST", rpc.toString(), headers);
+                    JSObject replyHeaders = new JSObject(); for (Map.Entry<String, String> h : result.headers.entrySet()) replyHeaders.put(h.getKey(), h.getValue());
+                    call.resolve(new JSObject().put("status", result.status).put("data", result.body).put("headers", replyHeaders)); return;
+                }
                 if (MemorySourcePolicy.NOTION.equals(s.kind)) {
                     if ("tools/call".equals(rpc.optString("method")) && MemorySourcePolicy.NOTION_DIARY.equals(rpc.getJSONObject("params").optString("name"))) {
                         JSONObject receipt = new NotionDiaryWriter(s, headers).write(rpc.getJSONObject("params").getJSONObject("arguments"), call.getBoolean("userWriteRequested", false));

@@ -3,10 +3,13 @@ import type { ChatAttachment } from '../../../../types/domain';
 import { useAssetObjectUrl } from '../../../useAssetObjectUrl';
 import { useI18n } from '../../../../i18n';
 import { canOpenImagePreviewLink, useNearViewportAssetLoading } from '../ChatAttachmentStrip';
+import { MessageSticker } from './MessageSticker';
+import { isStickerAttachment } from './naturalChatPresentation';
 
 type MessageGeneratedImagesProps = {
   attachments: ChatAttachment[];
   onSave?: (attachment: ChatAttachment) => void;
+  stickers?: boolean;
 };
 
 // 生成的图是成品，不是附件回执：大图占位，信息收进图下的小字
@@ -65,12 +68,12 @@ function GeneratedImageCard({
   );
 }
 
-export function MessageGeneratedImages({ attachments, onSave }: MessageGeneratedImagesProps) {
+export function MessageGeneratedImages({ attachments, onSave, stickers = false }: MessageGeneratedImagesProps) {
   if (attachments.length === 0) return null;
   return (
     <div className="generated-image-stack">
       {attachments.map((attachment) => (
-        <GeneratedImageCard key={attachment.id} attachment={attachment} onSave={onSave} />
+        stickers || isStickerAttachment(attachment) ? <MessageSticker key={attachment.id} attachment={attachment} /> : <GeneratedImageCard key={attachment.id} attachment={attachment} onSave={onSave} />
       ))}
     </div>
   );

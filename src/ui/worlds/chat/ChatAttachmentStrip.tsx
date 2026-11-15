@@ -6,6 +6,8 @@ import { formatAttachmentSize } from '../../../engines/attachmentFormat';
 import type { ChatAttachment } from '../../../types/domain';
 import { useAssetObjectUrl } from '../../useAssetObjectUrl';
 import { useI18n, type I18nTranslator } from '../../../i18n';
+import { isStickerAttachment } from './message/naturalChatPresentation';
+import { MessageSticker } from './message/MessageSticker';
 
 type ChatAttachmentStripProps = {
   attachments: ChatAttachment[] | undefined;
@@ -200,6 +202,7 @@ export function ChatAttachmentStrip({
   return (
     <div className={`attachment-strip ${tone}`}>
       {attachments.map((attachment) => (
+        isStickerAttachment(attachment) ? <MessageSticker key={attachment.id} attachment={attachment} pending={tone === 'pending'} onRemove={onRemove} /> :
         <AttachmentChip
           key={attachment.id}
           attachment={attachment}

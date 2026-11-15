@@ -84,7 +84,7 @@ async function requestMcpHttp(
   init: RequestInit,
   options: McpTransportOptions
 ) {
-  if (options.server.authKind === 'notion-memory-oauth' || options.server.authKind === 'github-memory-device') {
+  if (options.server.authKind === 'notion-memory-oauth' || options.server.authKind === 'github-memory-device' || options.server.authKind === 'garden-oauth') {
     if (options.server.transport !== 'streamable-http' || url !== options.server.url) throw new Error('记忆连接不支持更换目标地址或匿名回退。');
     const incoming = new Headers(init.headers); const headers: Record<string, string> = {};
     for (const key of ['Mcp-Session-Id', 'MCP-Protocol-Version']) { const value = incoming.get(key); if (value) headers[key] = value; }

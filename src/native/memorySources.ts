@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-export type MemoryAddress = { serverId: string; url: string; authKind: 'notion-memory-oauth' | 'github-memory-device'; publicClientId?: string };
+export type MemoryAddress = { serverId: string; url: string; authKind: 'notion-memory-oauth' | 'github-memory-device' | 'garden-oauth'; publicClientId?: string };
 export type MemoryStatus = { connected: boolean; provider: string; writingEnabled?: boolean; diaryParentUrl?: string; diaryTemplateUrl?: string; pending?: boolean; userCode?: string; pollAfterSeconds?: number };
 type RequestArgs = MemoryAddress & { method: string; body: string; headers?: Record<string, string>; userWriteRequested?: boolean };
 type Bridge = {
@@ -17,7 +17,7 @@ type Bridge = {
 let bridge: Bridge | undefined;
 export function canUseMemorySources() { return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android' && typeof Capacitor.isPluginAvailable === 'function' && Capacitor.isPluginAvailable('MemorySources'); }
 function native() {
-  if (!canUseMemorySources()) throw new Error('需要包含 GitHub / Notion 记忆连接的 Android 更新版；未使用其他网络线路。');
+  if (!canUseMemorySources()) throw new Error('需要包含花园与 GitHub / Notion 记忆连接的 Android 更新版；未使用其他网络线路。');
   return bridge ??= registerPlugin<Bridge>('MemorySources');
 }
 export const memorySources: Bridge = {

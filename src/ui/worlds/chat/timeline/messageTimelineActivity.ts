@@ -1,6 +1,7 @@
 import type { ChatActivityDisplay, ChatMessage } from '../../../../types/domain';
 import { TOOL_DRAFT_BLOCK_PATTERN } from '../../../../app/chat/chatMarkdownPatterns';
 import { stripCodeBlocksFromMessage } from '../../../../engines/codeCardEngine';
+import { isQuietMcpSuccess } from '../message/naturalChatPresentation';
 import type { TimelineRenderItem } from './messageTimelineItems';
 
 export function activityMessages(item: TimelineRenderItem): ChatMessage[] {
@@ -8,7 +9,7 @@ export function activityMessages(item: TimelineRenderItem): ChatMessage[] {
 }
 
 export function needsActivityAttention(message: ChatMessage) {
-  return message.toolInvocation?.status === 'failed' || message.toolInvocation?.status === 'preview';
+  return message.toolInvocation?.status === 'failed' || message.toolInvocation?.status === 'preview' || message.toolInvocation?.mcpResult?.isError === true;
 }
 
 function isActivityOnly(item: TimelineRenderItem) {
@@ -35,6 +36,7 @@ export function projectTimelineActivity(items: TimelineRenderItem[], mode: ChatA
     group = [];
   };
   for (const item of items) {
+    if (isActivityOnly(item) && activityMessages(item).every(isQuietMcpSuccess)) continue;
     if (!isActivityOnly(item)) { flush(); result.push(item); continue; }
     if (mode === 'hidden') {
       flush();

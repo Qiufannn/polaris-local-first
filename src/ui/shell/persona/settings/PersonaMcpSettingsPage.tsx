@@ -73,6 +73,12 @@ export function PersonaMcpSettingsPage({
 
   return (
     <div className="persona-mcp-settings-flow">
+      <button type="button" className="mcp-btn secondary" onClick={() => {
+        const existing = mcpServers.find(server => server.authKind === 'garden-oauth' && server.url === 'https://galatea.abysslumina.com/mcp');
+        const serverId = existing?.id ?? onCreateMcpServer({ name: '花园', authKind: 'garden-oauth', url: 'https://galatea.abysslumina.com/mcp', transport: 'streamable-http', headers: [], isActive: false });
+        if (!followsGlobal && !selectedIdSet.has(serverId)) onUpdatePersona({ mcp: { serverIds: [...selectedServerIds, serverId] } });
+        setEditingServerId(serverId);
+      }}>连接花园（原账号）</button>
       <div className="memory-toggle memory-toggle--switch persona-mcp-follow-toggle">
         <div className="memory-toggle-copy">
           <strong>{t('request.mcp.followGlobalTitle')}</strong>

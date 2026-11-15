@@ -96,7 +96,7 @@ export interface McpServerConfig {
   transport: McpServerTransport;
   url: string;
   /** Credential-free marker; OAuth secrets live only in the native per-resource vault. */
-  authKind?: 'sites-memory-oauth' | 'notion-memory-oauth' | 'github-memory-device';
+  authKind?: 'sites-memory-oauth' | 'notion-memory-oauth' | 'github-memory-device' | 'garden-oauth';
   /** Public application identifier, never a client secret. */
   publicClientId?: string;
   memoryRootUrl?: string;

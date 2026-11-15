@@ -17,6 +17,10 @@ import org.json.JSONObject;
 final class MemorySourcePolicy {
     static final String NOTION = "notion-memory-oauth", GITHUB = "github-memory-device";
     static final String NOTION_RESOURCE = "https://mcp.notion.com", NOTION_MCP = NOTION_RESOURCE + "/mcp";
+    static final String GARDEN = "garden-oauth", GARDEN_ORIGIN = "https://galatea.abysslumina.com", GARDEN_MCP = GARDEN_ORIGIN + "/mcp";
+    static boolean browserSource(String kind) { return NOTION.equals(kind) || GARDEN.equals(kind); }
+    static String issuer(String kind) { return GARDEN.equals(kind) ? GARDEN_ORIGIN : NOTION_RESOURCE; }
+    static String oauthEndpoint(String kind, String operation) { return issuer(kind) + (GARDEN.equals(kind) ? "/oauth/" : "/") + operation; }
     static final Set<String> NOTION_READ = new HashSet<>(Arrays.asList("notion-search", "notion-fetch"));
     static final Set<String> GITHUB_TOOLS = new HashSet<>(Arrays.asList("github_memory_read", "github_memory_write"));
     static final int WRITE_LIMIT = 128 * 1024;
@@ -25,6 +29,10 @@ final class MemorySourcePolicy {
     private static final Pattern PAGE = Pattern.compile("(?i)([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(?:$|/)");
 
     static String resource(String kind, String value) throws Exception {
+        if (GARDEN.equals(kind)) {
+            if (!GARDEN_MCP.equals(value)) throw new Exception("花园授权地址必须是官方 MCP 地址。");
+            return GARDEN_MCP;
+        }
         if (NOTION.equals(kind)) {
             if (!NOTION_MCP.equals(value)) throw new Exception("授权地址必须是 Notion 官方 MCP 地址。");
             return NOTION_RESOURCE;
@@ -65,6 +73,12 @@ final class MemorySourcePolicy {
         if (!NOTION_RESOURCE.equals(values.get("iss"))) throw new Exception("授权返回的 Notion 签发者不匹配，未保存连接。");
         if (values.containsKey("error")) throw new Exception("授权未批准，原连接未替换。");
     }
+    static void browserIssuer(String kind, Map<String, String> values) throws Exception {
+        if (NOTION.equals(kind)) { notionIssuer(values); return; }
+        if (!GARDEN.equals(kind) || values.containsKey("error") || (values.containsKey("iss") && !GARDEN_ORIGIN.equals(values.get("iss")))) throw new Exception("花园授权来源不匹配或未批准。");
+        // Garden's published metadata does not advertise RFC 9207 iss responses.
+        // Its single issuer, resource, client, state and PKCE remain pinned.
+    }
     static String file(String path) throws Exception {
         if (path == null || path.length() > 300 || !("README.md".equals(path) || path.startsWith("continuity/"))
             || !path.endsWith(".md") || !path.matches("[\\p{L}\\p{N}._/-]+")) throw new Exception("授权读取仅支持连续性目录里的 Markdown 文件。");
@@ -83,7 +97,7 @@ final class MemorySourcePolicy {
         String method = rpc.optString("method");
         if ("tools/call".equals(method)) {
             JSONObject params = rpc.getJSONObject("params"); String name = params.optString("name");
-            if (NOTION.equals(kind) ? !(NOTION_READ.contains(name) || NOTION_DIARY.equals(name)) : !GITHUB_TOOLS.contains(name)) throw new Exception("授权连接不支持该记忆工具。");
+            if (GARDEN.equals(kind) ? !name.matches("[a-z][a-z0-9_]{1,79}") : NOTION.equals(kind) ? !(NOTION_READ.contains(name) || NOTION_DIARY.equals(name)) : !GITHUB_TOOLS.contains(name)) throw new Exception("授权连接不支持该工具。");
             JSONObject args = params.optJSONObject("arguments");
             if (args == null) args = new JSONObject();
             if (GITHUB.equals(kind)) file(args.optString("path"));

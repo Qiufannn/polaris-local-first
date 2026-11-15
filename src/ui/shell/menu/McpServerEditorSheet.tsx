@@ -6,6 +6,7 @@ import type { McpServerConfig, McpServerHeader, McpServerToolConfig, McpServerTr
 import { Icon } from '../../Icon';
 import { McpSiteConnection } from './McpSiteConnection';
 import { MemorySourceConnection } from './MemorySourceConnection';
+import { GardenConnection } from './GardenConnection';
 import { isPublicGithubClientId } from '../../../engines/mcpAuth';
 
 type McpServerEditorSheetProps = {
@@ -267,14 +268,16 @@ export function McpServerEditorSheet({
           <label>
             连接方式
             <select value={authKind ?? ''} onChange={event => {
-              const next = ['sites-memory-oauth', 'notion-memory-oauth', 'github-memory-device'].includes(event.target.value) ? event.target.value as McpServerConfig['authKind'] : undefined;
+              const next = ['sites-memory-oauth', 'notion-memory-oauth', 'github-memory-device', 'garden-oauth'].includes(event.target.value) ? event.target.value as McpServerConfig['authKind'] : undefined;
               setAuthKind(next); setOauthReady(false); setTestState({ status: 'idle' });
               if (next) { setTransport('streamable-http'); setTools([]); }
               if (next === 'notion-memory-oauth') setUrl('https://mcp.notion.com/mcp');
+              if (next === 'garden-oauth') setUrl('https://galatea.abysslumina.com/mcp');
             }}>
               <option value="">普通 MCP</option>
               <option value="github-memory-device">GitHub 主记忆（设备登录，先验证读取）</option>
               <option value="notion-memory-oauth">Notion 日记（官方网页登录）</option>
+              <option value="garden-oauth">花园（官方网页登录，原账号）</option>
               <option value="sites-memory-oauth">小家展示 MCP（实验性，只读）</option>
             </select>
           </label>
@@ -294,6 +297,8 @@ export function McpServerEditorSheet({
             address={server?.authKind === authKind && server.url.trim() === url.trim() ? { serverId: server.id, url: server.url.trim() } : null}
             onReady={setOauthReady} onEnable={() => setIsActive(true)}
           />}
+          {authKind === 'garden-oauth' && <GardenConnection server={server?.authKind === authKind && server.url.trim() === url.trim() ? server : null}
+            onReady={setOauthReady} onEnable={() => setIsActive(true)} onTools={setTools} />}
 
           <div className={`mcp-test-panel ${testState.status !== 'idle' ? `mcp-test-panel--${testState.status}` : ''}`}>
             <button

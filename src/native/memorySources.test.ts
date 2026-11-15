@@ -5,7 +5,7 @@ import { clearMcpToolCatalogCacheForTests, invokeMcpTool, resolveMcpToolCatalog 
 import { normalizeMcpServer, parseMcpServersJson, serializeMcpServersToJson } from '../stores/runtimeStoreMcp';
 import { buildServerHeaders } from '../engines/mcpRuntimeTransport';
 import type { McpServerConfig } from '../types/domain';
-function source(kind:'notion-memory-oauth'|'github-memory-device'):McpServerConfig{return{id:'mcp-unit',handle:'memory',name:'Memory',description:'',transport:'streamable-http',authKind:kind,url:kind==='notion-memory-oauth'?'https://mcp.notion.com/mcp':'https://api.github.com/repos/unit-owner/unit-memory',publicClientId:kind==='github-memory-device'?'Iv1.0123456789abcdef':undefined,headers:[],isActive:true};}
+function source(kind:'notion-memory-oauth'|'github-memory-device'|'garden-oauth'):McpServerConfig{return{id:'mcp-unit',handle:'memory',name:'Memory',description:'',transport:'streamable-http',authKind:kind,url:kind==='garden-oauth'?'https://galatea.abysslumina.com/mcp':kind==='notion-memory-oauth'?'https://mcp.notion.com/mcp':'https://api.github.com/repos/unit-owner/unit-memory',publicClientId:kind==='github-memory-device'?'Iv1.0123456789abcdef':undefined,headers:[],isActive:true};}
 afterEach(()=>{vi.clearAllMocks();vi.unstubAllGlobals();mocks.native=true;mocks.available=true;clearMcpToolCatalogCacheForTests();});
 describe('native primary memory sources',()=>{
  it('keeps per-call write authorization outside model-supplied RPC arguments',async()=>{
@@ -18,14 +18,14 @@ describe('native primary memory sources',()=>{
   const accepted=await invokeMcpTool({tool:catalog.tools[0],argumentsObject:{path:'continuity/unit.md'},memoryWriteAuthorized:true,timeoutSeconds:1});expect(accepted.ok&&accepted.structuredContent).toEqual({verified:true});
   const calls=mocks.request.mock.calls.map(([a])=>a).filter(a=>JSON.parse(a.body).method==='tools/call');expect(calls[0].userWriteRequested).toBeUndefined();expect(calls[1].userWriteRequested).toBe(true);expect(JSON.parse(calls[1].body).params.arguments.userWriteRequested).toBeUndefined();
  });
- it.each(['notion-memory-oauth','github-memory-device'] as const)('retains resource and public profile through catalog and invocation: %s',async kind=>{
+ it.each(['notion-memory-oauth','github-memory-device','garden-oauth'] as const)('retains resource and public profile through catalog and invocation: %s',async kind=>{
   const server=source(kind),fetch=vi.fn();vi.stubGlobal('fetch',fetch);
-  const name=kind==='notion-memory-oauth'?'notion-fetch':'github_memory_read';
+  const name=kind==='garden-oauth'?'get_self':kind==='notion-memory-oauth'?'notion-fetch':'github_memory_read';
   mocks.request.mockImplementation(async({body})=>{const r=JSON.parse(body);if(r.method==='notifications/initialized')return{status:202,data:'',headers:{}};
    const result=r.method==='initialize'?{protocolVersion:'2025-03-26',capabilities:{tools:{}}}:r.method==='tools/list'?{tools:[{name,inputSchema:{type:'object'}}]}:{content:[{type:'text',text:'synthetic memory'}]};
    return{status:200,data:JSON.stringify({jsonrpc:'2.0',id:r.id,result}),headers:{'mcp-session-id':'unit-session'}};});
   const catalog=await resolveMcpToolCatalog({servers:[server],retryDelaysMs:[],timeoutSeconds:1});expect(catalog.errors).toEqual([]);expect(catalog.tools).toHaveLength(1);
-  const result=await invokeMcpTool({tool:catalog.tools[0],argumentsObject:kind==='notion-memory-oauth'?{id:'0123456789abcdef0123456789abcdef'}:{path:'continuity/identity.md'},timeoutSeconds:1});expect(result.ok).toBe(true);
+  const result=await invokeMcpTool({tool:catalog.tools[0],argumentsObject:kind==='garden-oauth'?{}:kind==='notion-memory-oauth'?{id:'0123456789abcdef0123456789abcdef'}:{path:'continuity/identity.md'},timeoutSeconds:1});expect(result.ok).toBe(true);
   for(const [args]of mocks.request.mock.calls){expect(args.authKind).toBe(kind);expect(args.url).toBe(server.url);expect(args.publicClientId).toBe(server.publicClientId);expect(args.headers.Authorization).toBeUndefined();}
   expect(mocks.request.mock.calls.some(([a])=>a.headers['Mcp-Session-Id']==='unit-session')).toBe(true);expect(fetch).not.toHaveBeenCalled();expect(mocks.generic).not.toHaveBeenCalled();
  });
@@ -39,5 +39,11 @@ describe('native primary memory sources',()=>{
   expect(normalizeMcpServer(s).headers).toEqual([]);expect(buildServerHeaders(s).has('Authorization')).toBe(false);
   const text=serializeMcpServersToJson([s]);expect(text).not.toContain('private-unit-sentinel');expect(parseMcpServersJson(text)[0]).toMatchObject({authKind:'github-memory-device',publicClientId:'Iv1.0123456789abcdef',headers:[]});
   expect(serializeMcpServersToJson([{...s,publicClientId:'ghp_private-unit-sentinel'}])).not.toContain('private-unit-sentinel');
+ });
+ it('does not export or fall back for a protected Garden connection',async()=>{
+  const garden={...source('garden-oauth'),headers:[{id:'unit',key:'Authorization',value:'unit-private-sentinel'}]};
+  const exported=serializeMcpServersToJson([garden]);expect(exported).not.toContain('unit-private-sentinel');expect(parseMcpServersJson(exported)[0]).toMatchObject({authKind:'garden-oauth',headers:[]});
+  const fetch=vi.fn();vi.stubGlobal('fetch',fetch);mocks.available=false;
+  const result=await resolveMcpToolCatalog({servers:[garden],retryDelaysMs:[],timeoutSeconds:1});expect(result.tools).toEqual([]);expect(fetch).not.toHaveBeenCalled();expect(mocks.generic).not.toHaveBeenCalled();
  });
 });

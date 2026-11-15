@@ -10,7 +10,7 @@ async function createMcpAttachment(content: McpToolAttachmentContent, toolName: 
   const fallbackName = `${toolName.trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-') || 'mcp-result'}-${index + 1}`;
   return createStoredAttachmentFromDataUrl({
     kind: content.kind,
-    name: content.name || fallbackName,
+    name: toolName === 'send_azhou_sticker_image' && content.kind === 'image' ? `表情包-${content.name || fallbackName}` : content.name || fallbackName,
     mimeType: content.mimeType,
     dataUrl: content.dataUrl,
     textContent: content.textContent

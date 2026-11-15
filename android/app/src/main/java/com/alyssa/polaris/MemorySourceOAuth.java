@@ -45,6 +45,7 @@ final class MemorySourceOAuth {
 
     static String safe(Exception error) {
         String message = error.getMessage();
+        if (message != null && message.startsWith("花园授权") && message.length() < 160 && !message.matches("(?s).*(token|secret|code=).*")) return message;
         if (message != null && message.length() < 240 && !message.matches("(?s).*(gh[upr]_|access_token|refresh_token|device_code).*" )
             && message.matches("^(GitHub 授权|GitHub 记忆|Notion 日记|Notion 页面|Notion 读取|Notion 当前|Notion 尚未|Notion Markdown|日记|原模板|目标日记|同一天|当天有|单次日记|每条记忆|登录|授权|身份|安全|返回|请选择|尚未|暂时|无法|注册).*")) return message;
         return "记忆来源连接未完成（" + category(error) + "），请重试；无需修改 ChatGPT 登录。";
