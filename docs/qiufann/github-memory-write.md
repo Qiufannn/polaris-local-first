@@ -54,12 +54,14 @@ GitHub 是主要记忆，Notion 是日记及补充。本人已报告两处原有
 - APK SHA-256：`a00de8d19b5187df07145ce94313bb5125dace74efebecdbeb3e9be8f233119e`。
 - 个人证书 SHA-256：`f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，与既有版本相同；独立 `apksigner verify` 成功，版本、源码、run ID 与摘要匹配。
 - unsigned artifact `14143929001` 的 ZIP SHA-256：`293167d7629d56dbbf2fa6c1ad51bf88b4243361d19456c59d1a3dbc2d0df3c7`，APK SHA-256：`ee864d5a551b6bc9f1451188a60537d03b3f106a292507d1f1e0b3433178b90d`。签名 APK 中每项原始 ZIP 内容与之逐字节相同，仅新增三个 v1 签名条目；已确认实际交付包包含原生写入器、写回开关与分离的调用授权标志。
-- 本次开发没有写入原私人记忆库。手机新增验收进展见下；更正仍待本人手机验收。
+- 此写回功能开发时未改动原私人记忆；新增及更正的后续手机实际验收见下。后续由本人另行要求更新三平台记录规则，与中性测试验收分开记录。
 
 ### 2026-11-15 手机新增验收
 
 本人完成权限及服务卡调整后报告成功。通过已连接 GitHub 独立读取中性验收文件，确认内容为要求的测试句；查到真实新增提交，按该 commit 再次读取，并核对 Git blob SHA 与精确 UTF-8 字节一致。已验收实际新增、提交和按版本回读；没有仅凭模型口头回复判定成功。私人仓库 URL、commit 和文件 SHA 不写入此公开报告。
 
-唯一原文片段更正、修改后的新提交与回读仍待在本人 Polaris 中测试；不把新增成功等同于更正已经验收。
+### 2026-11-15 手机更正验收
+
+本人继续完成同一中性文件的唯一片段更正。独立读取了修改提交以及按该提交固定版本的正文，确认确实修改目标文件、生成新的文件 SHA，且精确内容与要求一致。新增和更正两项均已验收；未将口头报告作为唯一证据。私人仓库 URL、commit 和文件 SHA 不写入此公开报告。
 
 官方权限更新依据：[修改 GitHub App 权限](https://docs.github.com/en/apps/maintaining-github-apps/modifying-a-github-app-registration)、[批准更新权限](https://docs.github.com/en/apps/using-github-apps/approving-updated-permissions-for-a-github-app)。权限修改须经安装账户批准后才生效。

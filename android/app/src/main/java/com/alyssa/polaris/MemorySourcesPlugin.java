@@ -51,6 +51,10 @@ public class MemorySourcesPlugin extends Plugin {
         executor.execute(() -> { try { call.resolve(JSObject.fromJSONObject(session(call).setWritingEnabled(call.getBoolean("enabled", false)))); }
             catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); } });
     }
+    @PluginMethod public void setDiaryWriting(PluginCall call) {
+        executor.execute(() -> { try { call.resolve(JSObject.fromJSONObject(session(call).setDiaryWriting(call.getBoolean("enabled", false), call.getString("parentUrl", ""), call.getString("templateUrl", "")))); }
+            catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); } });
+    }
     @PluginMethod public void githubStart(PluginCall call) {
         executor.execute(() -> { try {
             MemorySourceSession s = session(call); if (!MemorySourcePolicy.GITHUB.equals(s.kind)) throw new Exception("授权来源不是 GitHub。");
@@ -112,8 +116,18 @@ public class MemorySourcesPlugin extends Plugin {
                 if (!"POST".equals(method)) throw new Exception("授权工具请求方法不正确。");
                 JSONObject rpc = MemorySourcePolicy.rpc(s.kind, call.getString("body"));
                 if (MemorySourcePolicy.NOTION.equals(s.kind)) {
+                    if ("tools/call".equals(rpc.optString("method")) && MemorySourcePolicy.NOTION_DIARY.equals(rpc.getJSONObject("params").optString("name"))) {
+                        JSONObject receipt = new NotionDiaryWriter(s, headers).write(rpc.getJSONObject("params").getJSONObject("arguments"), call.getBoolean("userWriteRequested", false));
+                        JSONObject result = new JSONObject().put("isError", !receipt.optBoolean("verified")).put("structuredContent", receipt).put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", receipt.toString())));
+                        JSObject replyHeaders = new JSObject(); for (Map.Entry<String, String> h : headers.entrySet()) replyHeaders.put(h.getKey(), h.getValue());
+                        call.resolve(new JSObject().put("status", 200).put("data", new JSONObject().put("jsonrpc", "2.0").put("id", rpc.opt("id")).put("result", result).toString()).put("headers", replyHeaders));
+                        return;
+                    }
                     MemorySourceHttp.Result result = s.authorized(s.endpoint, "POST", rpc.toString(), headers);
-                    String data = result.body.isEmpty() ? "" : MemorySourcePolicy.filterNotion(new JSONObject(result.body)).toString();
+                    JSONObject envelope = result.body.isEmpty() ? null : MemorySourcePolicy.filterNotion(new JSONObject(result.body));
+                    if (envelope != null && "tools/list".equals(rpc.optString("method")) && envelope.optJSONObject("result") != null && envelope.getJSONObject("result").optJSONArray("tools") != null && s.status().optBoolean("writingEnabled"))
+                        envelope.getJSONObject("result").getJSONArray("tools").put(NotionDiaryWriter.tool());
+                    String data = envelope == null ? "" : envelope.toString();
                     JSObject replyHeaders = new JSObject(); for (Map.Entry<String, String> h : result.headers.entrySet()) replyHeaders.put(h.getKey(), h.getValue());
                     call.resolve(new JSObject().put("status", result.status).put("data", data).put("headers", replyHeaders));
                 } else {

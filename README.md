@@ -1,5 +1,7 @@
 # Polaris
 
+Qiufann Android: [current Aru feature audit and owner priority](docs/qiufann/aru-feature-audit.md), [Notion diary writeback](docs/qiufann/notion-diary-write.md), and [verified GitHub memory writes](docs/qiufann/github-memory-write.md). Historical reports below describe their original stage, not the current feature state.
+
 ## Qiufann Android branch
 
 - Upstream: [Aevella/polaris-local-first](https://github.com/Aevella/polaris-local-first), `main` at `a510f9ae68a70dead5ad344829466d3e5770f600`.

@@ -45,7 +45,52 @@ final class MemorySourceSession {
         JSONObject status = new JSONObject().put("connected", connected).put("provider", kind).put("pending", pending != null && clock.getAsLong() < pendingUntil)
             .put("writingEnabled", MemorySourcePolicy.GITHUB.equals(kind) && store.load().optBoolean("github_write_enabled", false));
         if (status.getBoolean("pending")) status.put("userCode", pending.optString("user_code")).put("pollAfterSeconds", interval);
+        if (MemorySourcePolicy.NOTION.equals(kind)) {
+            JSONObject diary = diarySettings();
+            status.put("writingEnabled", connected && diary.optBoolean("enabled"))
+                .put("diaryParentUrl", diary.optString("parent").isEmpty() ? "" : "https://www.notion.so/" + diary.getString("parent"))
+                .put("diaryTemplateUrl", diary.optString("template").isEmpty() ? "" : "https://www.notion.so/" + diary.getString("template"));
+        }
         return status;
+    }
+    synchronized JSONObject diarySettings() throws Exception {
+        JSONObject value = store.load().optJSONObject("notion_diary_settings");
+        return value == null ? new JSONObject() : new JSONObject(value.toString());
+    }
+    synchronized JSONObject setDiaryWriting(boolean enabled, String parent, String template) throws Exception {
+        if (!MemorySourcePolicy.NOTION.equals(kind) || connection() == null) throw new Exception("Notion 日记写回请先连接此来源。");
+        JSONObject settings = diarySettings();
+        if (enabled) {
+            parent = MemorySourcePolicy.page(parent); template = MemorySourcePolicy.page(template);
+            if (parent.equals(template)) throw new Exception("日记目录和模板必须是不同页面。");
+            settings.put("parent", parent).put("template", template);
+        }
+        settings.put("enabled", enabled);
+        JSONObject db = store.load(); db.put("notion_diary_settings", settings); store.save(db); return status();
+    }
+    synchronized JSONObject diaryReceipt(String fingerprint) throws Exception {
+        JSONArray receipts = store.load().optJSONArray("notion_diary_receipts");
+        if (receipts != null) for (int i = 0; i < receipts.length(); i++)
+            if (fingerprint.equals(receipts.getJSONObject(i).optString("fingerprint"))) return new JSONObject(receipts.getJSONObject(i).toString());
+        return null;
+    }
+    synchronized boolean pendingDiaryDate(String parent, String date) throws Exception {
+        JSONArray receipts = store.load().optJSONArray("notion_diary_receipts");
+        if (receipts != null) for (int i = 0; i < receipts.length(); i++) {
+            JSONObject record = receipts.getJSONObject(i);
+            if (!record.optBoolean("verified") && parent.equals(record.optString("parent")) && date.equals(record.optString("date"))) return true;
+        }
+        return false;
+    }
+    synchronized void saveDiaryReceipt(JSONObject receipt) throws Exception {
+        JSONObject db = store.load(); JSONArray old = db.optJSONArray("notion_diary_receipts"), next = new JSONArray();
+        if (old != null) for (int i = 0; i < old.length(); i++) {
+            JSONObject entry = old.getJSONObject(i);
+            // Uncertain writes are never evicted: an offline retry must not create duplicates.
+            if (!entry.optString("fingerprint").equals(receipt.getString("fingerprint")) && (!entry.optBoolean("verified") || i >= old.length() - 20)) next.put(entry);
+        }
+        if (next.length() >= 100) throw new Exception("Notion 待核验记录过多，请先核验原日记，未再次写入。");
+        next.put(receipt); db.put("notion_diary_receipts", next); store.save(db);
     }
     private MemorySourceHttp.Result post(String url, Map<String, String> fields) throws Exception {
         return http.send(url, "POST", ChatGptOAuth.form(fields), "application/x-www-form-urlencoded", null, new HashMap<>());

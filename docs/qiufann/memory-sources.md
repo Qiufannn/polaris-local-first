@@ -1,5 +1,7 @@
 # GitHub 主记忆与 Notion 日记：独立 Android 连接
 
+> 本文保留最初只读接通阶段的报告。当前 GitHub 读取/新增/更正已由本人手机验收，见 [写回与回读](github-memory-write.md)；Notion 读取已验收，[北极星独立日记写回](notion-diary-write.md)本次开发，手机写入仍待验收。Chat / Work / Polaris 分别保留私记，最新顺序见 [Aru 对照](aru-feature-audit.md)。
+
 > 第 12 版本人验收发现“GitHub 网页成功、Polaris 仍失败”，以及本地目录被误报为连接成功。当前修复与新版证据见 [设备授权轮询恢复](github-device-recovery.md)。下方第 12 版回执保留作历史构建证据，不能当作本人读取成功。
 
 ## 当前范围

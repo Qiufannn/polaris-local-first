@@ -20,6 +20,8 @@ final class MemorySourcePolicy {
     static final Set<String> NOTION_READ = new HashSet<>(Arrays.asList("notion-search", "notion-fetch"));
     static final Set<String> GITHUB_TOOLS = new HashSet<>(Arrays.asList("github_memory_read", "github_memory_write"));
     static final int WRITE_LIMIT = 128 * 1024;
+    static final String NOTION_DIARY = "notion_diary_write";
+    static final String NOTION_MARKDOWN = "notion://docs/notion-flavored-markdown-spec";
     private static final Pattern PAGE = Pattern.compile("(?i)([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(?:$|/)");
 
     static String resource(String kind, String value) throws Exception {
@@ -81,15 +83,17 @@ final class MemorySourcePolicy {
         String method = rpc.optString("method");
         if ("tools/call".equals(method)) {
             JSONObject params = rpc.getJSONObject("params"); String name = params.optString("name");
-            if (NOTION.equals(kind) ? !NOTION_READ.contains(name) : !GITHUB_TOOLS.contains(name)) throw new Exception("授权连接不支持该记忆工具。");
+            if (NOTION.equals(kind) ? !(NOTION_READ.contains(name) || NOTION_DIARY.equals(name)) : !GITHUB_TOOLS.contains(name)) throw new Exception("授权连接不支持该记忆工具。");
             JSONObject args = params.optJSONObject("arguments");
             if (args == null) args = new JSONObject();
             if (GITHUB.equals(kind)) file(args.optString("path"));
             if (GITHUB.equals(kind) && "github_memory_write".equals(name)) validateWrite(args);
             if (NOTION.equals(kind) && "notion-fetch".equals(name)) {
                 String field = args.has("id") ? "id" : "url";
-                String id = page(args.optString(field));
-                args.put(field, "url".equals(field) ? "https://www.notion.so/" + id : id);
+                if (!NOTION_MARKDOWN.equals(args.optString(field))) {
+                    String id = page(args.optString(field));
+                    args.put(field, "url".equals(field) ? "https://www.notion.so/" + id : id);
+                }
             }
             params.put("arguments", args);
         } else if (!new HashSet<>(Arrays.asList("initialize", "notifications/initialized", "tools/list")).contains(method)) throw new Exception("授权连接不支持该操作。");

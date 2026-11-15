@@ -9,6 +9,7 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
 }) {
   const [connected, setConnected] = useState(false), [busy, setBusy] = useState(''), [message, setMessage] = useState(''), [code, setCode] = useState('');
   const [writingEnabled, setWritingEnabled] = useState(false);
+  const [diaryParentUrl, setDiaryParentUrl] = useState(''), [diaryTemplateUrl, setDiaryTemplateUrl] = useState('');
   const version = useRef(0), activeLogin = useRef(false);
   const available = canUseMemorySources();
   const key = server ? JSON.stringify([server.id, server.authKind, server.url, server.publicClientId]) : '';
@@ -19,9 +20,11 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
   useEffect(() => {
     const stamp = ++version.current; setConnected(false); onReady(false); setMessage(''); setCode(''); setBusy(''); activeLogin.current = false;
     setWritingEnabled(false);
+    setDiaryParentUrl(''); setDiaryTemplateUrl('');
     if (available && address) void memorySources.status(address).then(status => {
       if (stamp !== version.current) return; setConnected(status.connected); onReady(status.connected);
       setWritingEnabled(status.writingEnabled === true);
+      setDiaryParentUrl(status.diaryParentUrl ?? ''); setDiaryTemplateUrl(status.diaryTemplateUrl ?? '');
       if (status.pending && status.userCode) { setCode(status.userCode); setMessage('还有一次待接收的 GitHub 授权；若网页已批准，点“继续接收 GitHub 授权结果”，无需再次批准。'); }
     }).catch(error => { if (stamp === version.current) setMessage(error instanceof Error ? error.message : '无法读取本机连接。'); });
     return () => { version.current++; if (activeLogin.current && address) void memorySources.cancel(address).catch(() => undefined); };
@@ -42,9 +45,27 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
 
   return <section className="mcp-test-panel" aria-label="记忆来源授权">
     <strong>{server?.authKind === 'github-memory-device' ? 'GitHub 主记忆' : 'Notion 日记与补充资料'}</strong>
-    <p>GitHub 是主记忆，Notion 是日记与补充。GitHub 写回需要开启下方开关，并由你明确要求记住、更正或写入；普通闲聊不会逐条上传。Notion 目前提供日记读取。</p>
+    <p>GitHub 是主记忆，Notion 是日记与补充。两处写回都需在本机开启，并由你明确要求保存；普通闲聊不会逐条上传。北极星使用独立日记目录，保留 Chat、Work 和北极星各自的私记。</p>
     {!available ? <p>请安装包含这两个入口的 Android 更新版。</p> : !address ? <p>填好后先保存，再重新打开服务卡连接。</p> : <>
       <p>{connected ? '已有本机授权，实际内容仍需验证。' : '尚未连接。'}</p>
+      {!github && connected && <div>
+        <label className="menu-preference-copy">北极星日记目录链接<input aria-label="北极星日记目录链接" value={diaryParentUrl} disabled={Boolean(busy) || writingEnabled} placeholder="原日记本下的北极星窗口目录" onChange={event => setDiaryParentUrl(event.target.value)} /></label>
+        <label className="menu-preference-copy">原双层日记模板链接<input aria-label="原双层日记模板链接" value={diaryTemplateUrl} disabled={Boolean(busy) || writingEnabled} placeholder="Notion 模板页面链接" onChange={event => setDiaryTemplateUrl(event.target.value)} /></label>
+        <label className="menu-preference-row menu-preference-row--switch">
+          <span className="menu-preference-copy"><strong>允许北极星写日记</strong><small>只在此目录新建当天子页或追加双层片段；同日续写，保留旧文和私记。链接仅保存在本机，换机须重新配置。开启后同步工具，再保存服务卡。</small></span>
+          <input type="checkbox" aria-label="允许北极星写日记" checked={writingEnabled} disabled={Boolean(busy)} onChange={event => {
+            const enabled = event.target.checked;
+            void run('writing', async valid => {
+              const status = await memorySources.setDiaryWriting({ ...address, enabled, parentUrl: diaryParentUrl, templateUrl: diaryTemplateUrl });
+              if (!valid()) return; setWritingEnabled(status.writingEnabled === true); setDiaryParentUrl(status.diaryParentUrl ?? ''); setDiaryTemplateUrl(status.diaryTemplateUrl ?? '');
+              const catalog = await resolveMcpToolCatalog({ servers: [{ ...server!, isActive: true }], timeoutSeconds: 45, retryDelaysMs: [], useCachedOnFailure: false, includeDisabledTools: true });
+              if (!valid()) return; if (catalog.errors.length) throw new Error(catalog.errors.join('\n'));
+              onTools(catalog.tools.map(tool => ({ name: tool.toolName, description: tool.description, inputSchema: tool.inputSchema, enabled: true })));
+              setMessage(enabled ? '北极星日记工具已同步。保存后，可明确要求写日记；只有写后回读确认才算完成。' : '已关闭日记写回，保留读取。请保存。');
+            });
+          }} />
+        </label>
+      </div>}
       {github && connected && <label className="menu-preference-row menu-preference-row--switch">
         <span className="menu-preference-copy"><strong>允许 GitHub 新增和更正记忆</strong>
           <small>需将原 GitHub App 的 Contents 权限改为 Read and write 并批准安装更新。开启后同步写回工具；真实写入成功后才会有提交回执。</small></span>

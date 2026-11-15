@@ -1,10 +1,11 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 export type MemoryAddress = { serverId: string; url: string; authKind: 'notion-memory-oauth' | 'github-memory-device'; publicClientId?: string };
-export type MemoryStatus = { connected: boolean; provider: string; writingEnabled?: boolean; pending?: boolean; userCode?: string; pollAfterSeconds?: number };
+export type MemoryStatus = { connected: boolean; provider: string; writingEnabled?: boolean; diaryParentUrl?: string; diaryTemplateUrl?: string; pending?: boolean; userCode?: string; pollAfterSeconds?: number };
 type RequestArgs = MemoryAddress & { method: string; body: string; headers?: Record<string, string>; userWriteRequested?: boolean };
 type Bridge = {
   status(args: MemoryAddress): Promise<MemoryStatus>;
   setWritingEnabled(args: MemoryAddress & { enabled: boolean }): Promise<MemoryStatus>;
+  setDiaryWriting(args: MemoryAddress & { enabled: boolean; parentUrl: string; templateUrl: string }): Promise<MemoryStatus>;
   notionLogin(args: MemoryAddress): Promise<MemoryStatus>;
   githubStart(args: MemoryAddress): Promise<{ userCode: string; verificationUri: string; pollAfterSeconds: number }>;
   githubPoll(args: MemoryAddress): Promise<{ state: 'connected' | 'pending'; pollAfterSeconds: number; message?: string }>;
@@ -21,6 +22,7 @@ function native() {
 }
 export const memorySources: Bridge = {
   setWritingEnabled: a => native().setWritingEnabled(a),
+  setDiaryWriting: a => native().setDiaryWriting(a),
   status: a => native().status(a), notionLogin: a => native().notionLogin(a), githubStart: a => native().githubStart(a), githubPoll: a => native().githubPoll(a),
   openGithub: () => native().openGithub(), cancel: a => native().cancel(a), disconnect: a => native().disconnect(a), request: a => native().request(a)
 };
