@@ -1,9 +1,10 @@
 // Runs only in the authenticated, same-origin, asset-free browser bridge page.
 // Cookies belong to the browser; this function never reads or returns credentials.
-globalThis.__polarisHomeRequest = async function (key, body) {
+globalThis.__polarisHomeRequest = async function (key, body, origin) {
   const fail = error => { globalThis[key] = { done: true, error }; };
+  if (location.origin !== origin || location.pathname !== '/api/home/bridge') return fail('原小屋页面与连接地址不一致，已停止请求。');
   try {
-    const response = await fetch('/api/home/rpc', {
+    const response = await fetch(origin + '/api/home/rpc', {
       method: 'POST', credentials: 'same-origin', redirect: 'error', cache: 'no-store',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Home-Action': '1' }, body
     });

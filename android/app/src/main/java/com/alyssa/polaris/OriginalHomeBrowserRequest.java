@@ -51,7 +51,7 @@ final class OriginalHomeBrowserRequest {
                     try (InputStream input = activity.getAssets().open("original-home-request.js"); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                         byte[] buffer = new byte[4096]; int n; while ((n = input.read(buffer)) != -1) out.write(buffer, 0, n); source = out.toString("UTF-8");
                     }
-                    view.evaluateJavascript(source + "\n__polarisHomeRequest(" + JSONObject.quote(key) + "," + JSONObject.quote(rpc.toString()) + ");", ignored -> poll());
+                    view.evaluateJavascript(source + "\n__polarisHomeRequest(" + JSONObject.quote(key) + "," + JSONObject.quote(rpc.toString()) + "," + JSONObject.quote(origin) + ");", ignored -> poll());
                 } catch (Exception e) { finish(0, "", "原小屋浏览器连接未启动，请检查更新包。"); }
             }
         });
