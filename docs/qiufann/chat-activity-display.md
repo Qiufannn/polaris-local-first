@@ -21,7 +21,18 @@
 ## 验证
 
 - 新增 12 项测试：6 条调用合并、隐藏后正文和身份保持、正文/用户边界、失败与预览操作、图片/文件/卡片保留、普通代码与执行代码区分、组内聚焦、默认折叠不挂载结果正文、模式恢复和设置序列化。
-- 新增与设置持久化相关定向测试 48 项通过；TypeScript 检查通过。完整 CI 和签名包回执待补记。
+- 新增与设置持久化相关定向测试 48 项通过；TypeScript 检查通过。完整 CI 为 493 个 Web 测试文件 / 3,123 项通过，额外工具/API 与 Worker 类型检查通过，生产 Web 构建与 Android 构建通过；下载的 Android XML 为 51 项通过、0 失败。
 - 手机尺寸合成 UI：6 项 → 1 个关闭的组合；展开/收起；隐藏后正文仍可见；恢复逐条显示；刷新后偏好恢复；原消息未变；隐藏模式的图片/文件成果及失败详情仍显示。
 
 本人已反馈 GitHub 授权与真实读取成功，随后提供的手机截图含实际 MCP 调用及六份文件的读取回报。此截图是本人手机验收证据，不是由本次合成 UI 测试产生；本次显示调整不更改读取连接。
+
+## 第 14 版交付证据
+
+- 实现 commit：`53f674a75ff298ce7ae5fc5ff58b2dbbe454077c`。
+- [CI #14](https://github.com/Qiufannn/polaris-local-first/actions/runs/43668027949) 的四个 job 全部成功。
+- 推荐 [signed-14-1 artifact](https://github.com/Qiufannn/polaris-local-first/actions/runs/43668027949/artifacts/14142524144)，解压后用 `polaris.apk` 覆盖安装。版本 `1.0-qiufann.14`，versionCode `14`，包名 `com.alyssa.polaris`。
+- 签名 ZIP SHA-256：`ebe5ff86cbbef2d2a0efb6ab3f486500290032b517d8c0c0362f264ffcf5c1c1`。
+- APK SHA-256：`5024e50adca078d40db8cb300ea0a770d014be072d23d16f289166991868b4b2`。
+- 个人证书 SHA-256：`f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，与旧版固定证书一致；独立 `apksigner verify` 成功，版本、源码、run ID 与摘要匹配。
+- unsigned artifact `14143496421` 的 ZIP SHA-256：`38341066f75ea591881c8b17ef0511d282ac03ef3b65ee6e661b884db6f6a9eb`，APK SHA-256：`e9516b8c36712058153a382756d2d510db9d9a2ccc8d9a24fdb83bda9e55a02c`。签名包每项原始 ZIP 内容与之逐字节相同，仅新增三个 v1 签名条目。已确认交付 APK 包含新设置、三种模式文案与组合渲染器。
+- 本人实际手机的覆盖升级和显示设置验收仍待完成；自动测试与合成预览不能替代该验收。
