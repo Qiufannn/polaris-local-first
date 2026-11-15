@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useSpaceStore } from '../../../../stores/spaceStore';
 import { resolveChatGenerationActive, resolveChatMessageLifecycle, type ChatMessageLifecycle } from '../../../../app/chat/chatStreamingDisplay';
 import { resolveChatCardReference } from '../../../../app/collection/codeCollectionSource';
 import { resolveCodeCardPresentation } from '../../../../app/collection/codeCardPresentation';
@@ -19,7 +20,9 @@ import { useAssetObjectUrl } from '../../../useAssetObjectUrl';
 import { JumpToLatest } from './JumpToLatest';
 import { JumpToTop } from './JumpToTop';
 import { appendEnteringMessageIds } from './messageTimelineEntering';
-import { buildTimelineRenderItems } from './messageTimelineItems';
+import { buildTimelineRenderItems, type TimelineRenderItem } from './messageTimelineItems';
+import { activityMessages, projectTimelineActivity } from './messageTimelineActivity';
+import { ToolActivityGroup } from '../message/ToolActivityGroup';
 import { buildTimelineTaskReceipts } from './messageTimelineTaskReceipts';
 import { TaskRuntimeCard, type TaskRuntimeExecutionSegment } from './TaskRuntimeCard';
 import { TaskRuntimeDock } from './TaskRuntimeDock';
@@ -105,6 +108,7 @@ export function MessageTimeline({ isWorldSettled }: MessageTimelineProps) {
   const ui = useChatUi();
   const actions = useChatActions();
   const messages = stablePayload.messages;
+  const activityDisplay = useSpaceStore(state => state.displayPreferences.chatActivityDisplay ?? 'collapsed');
   const [codeCardPreview, setCodeCardPreview] = useState<ChatCodeCardPreview>(null);
   const rowHeightsRef = useRef<Record<string, number>>({});
   const viewportRafRef = useRef<number | null>(null);
@@ -199,7 +203,7 @@ export function MessageTimeline({ isWorldSettled }: MessageTimelineProps) {
     [currentTask, currentTaskEvidence]
   );
   const taskToolsEnabled = composer.toolPromptPreferences.task;
-  const shouldShowTaskDock = taskToolsEnabled && (Boolean(currentTask) || Boolean(composer.taskModeEnabled));
+  const shouldShowTaskDock = activityDisplay !== 'hidden' && taskToolsEnabled && (Boolean(currentTask) || Boolean(composer.taskModeEnabled));
   const emptyConversationSignature = resolveEmptyConversationSignature(
     stablePayload.persona,
     presentation.fallbackAssistantName,
@@ -398,7 +402,8 @@ export function MessageTimeline({ isWorldSettled }: MessageTimelineProps) {
     () => new Set(ui.expandedCodeMessageIds),
     [ui.expandedCodeMessageIds]
   );
-  const renderItems = useMemo(() => buildTimelineRenderItems(messages), [messages]);
+  const renderItems = useMemo(() => projectTimelineActivity(buildTimelineRenderItems(messages), activityDisplay), [messages, activityDisplay]);
+  useEffect(() => { rowHeightsRef.current = {}; setRowMetricsVersion(version => version + 1); }, [activityDisplay]);
   const timelineWindow = useMemo(
     () => resolveTimelineWindow(renderItems, followMode, ui.focusedMessageId, {
       ...timelineViewport,
@@ -455,6 +460,88 @@ export function MessageTimeline({ isWorldSettled }: MessageTimelineProps) {
     runCodeCard
   ]);
 
+  const renderTimelineRow = (item: TimelineRenderItem, nested = false): ReactNode => {
+    const { message, toolMessages, messageCycleIndex, userBubbleIndex, isAssistantContinuation, isTerminalAssistantInUserTurn, activityItems } = item;
+    if (activityItems) return <TimelineMeasuredRow key={message.id} messageId={message.id} onMeasure={handleRowMeasure}>
+      <ToolActivityGroup mode={activityDisplay} messages={activityItems.flatMap(activityMessages)}
+        forceOpen={activityItems.some(child => child.message.id === ui.focusedMessageId || child.toolMessages.some(tool => tool.id === ui.focusedMessageId))}>
+        {activityItems.map(child => renderTimelineRow(child, true))}
+      </ToolActivityGroup>
+    </TimelineMeasuredRow>;
+    const taskReceipt = taskReceiptsByMessageId.get(message.id) ?? null;
+    const lifecycle: ChatMessageLifecycle = resolveChatMessageLifecycle({
+      messageId: message.id,
+      streaming: ui.streaming,
+      enteringMessageIds
+    });
+    const canUseAssistantMore =
+      message.role === 'assistant'
+      && !message.toolInvocation
+      && isTerminalAssistantInUserTurn
+      && !ui.sending
+      && Boolean(message.content.trim());
+
+    const rowState: MessageRowState = {
+      editing: ui.editing?.messageId === message.id ? ui.editing : null,
+      isFocused: ui.focusedMessageId === message.id,
+      lifecycle,
+      isThinkingCollapsed: collapsedThinkingIds.has(message.id),
+      isCodeExpanded: expandedCodeIds.has(message.id),
+      canEdit: message.role === 'user' && !message.toolInvocation && !ui.sending,
+      canEditAssistant: canUseAssistantMore,
+      canRetry: canUseAssistantMore,
+      codeCardActionMode: ui.codeCardActionModeByMessageId[message.id] ?? 'hidden',
+      codeCardProgress: ui.codeCardProgressByMessageId[message.id] ?? null,
+      messageCycleIndex
+  };
+
+  const content = (
+    <Fragment>
+      <MessageRow
+        message={message}
+        resolvedCardReference={resolveChatCardReference(message.cardReference, composer.availableCards)}
+        fallbackAssistantName={presentation.fallbackAssistantName}
+        assistantAvatarUrl={assistantAvatarUrl}
+        assistantAvatarIconId={stablePayload.persona?.assistantAvatarIconId ?? null}
+        assistantAvatarShape={stablePayload.persona?.assistantAvatarShape ?? 'rounded'}
+        assistantAvatarSize={stablePayload.persona?.assistantAvatarSize ?? 'medium'}
+        assistantSigilSeed={presentation.activeCollaboratorId}
+        showChatAvatars={presentation.showChatAvatars}
+        showThinking={ui.showThinking}
+        activityDisplay={nested ? 'full' : activityDisplay}
+        state={rowState}
+        actions={rowActions}
+        userAvatarUrl={userAvatarUrl}
+        userAvatarIconId={stablePayload.persona?.userAvatarIconId ?? null}
+        userAvatarShape={stablePayload.persona?.userAvatarShape ?? 'circle'}
+        userAvatarSize={stablePayload.persona?.userAvatarSize ?? 'medium'}
+        toolMessages={toolMessages}
+        codeCardsById={codeCardsById}
+        userBubbleIndex={userBubbleIndex}
+        isAssistantContinuation={isAssistantContinuation}
+        isTerminalAssistantInUserTurn={isTerminalAssistantInUserTurn}
+        taskReceiptAction={activityDisplay !== 'hidden' && taskReceipt ? {
+          status: taskReceipt.task.status,
+          expanded: expandedTaskReceiptMessageId === message.id,
+          onToggle: () => setExpandedTaskReceiptMessageId((currentId) => (
+            currentId === message.id ? null : message.id
+          ))
+        } : null}
+      />
+      {activityDisplay !== 'hidden' && taskReceipt && expandedTaskReceiptMessageId === message.id ? (
+        <div className="message-task-receipt-panel">
+          <TaskRuntimeCard
+            task={taskReceipt.task}
+            executionSegments={taskReceipt.executionSegments}
+            onCollapse={() => setExpandedTaskReceiptMessageId(null)}
+          />
+        </div>
+      ) : null}
+    </Fragment>
+  );
+  return nested ? <Fragment key={message.id}>{content}</Fragment> : <TimelineMeasuredRow key={message.id} messageId={message.id} onMeasure={handleRowMeasure}>{content}</TimelineMeasuredRow>;
+  };
+
   return (
     <div className="chat-flow-shell">
       <div
@@ -487,78 +574,7 @@ export function MessageTimeline({ isWorldSettled }: MessageTimelineProps) {
         {timelineWindow.topSpacerHeight > 0 ? (
           <div className="chat-flow-spacer" aria-hidden="true" style={{ height: `${timelineWindow.topSpacerHeight}px` }} />
         ) : null}
-        {timelineWindow.visibleItems.map(({ message, toolMessages, messageCycleIndex, userBubbleIndex, isAssistantContinuation, isTerminalAssistantInUserTurn }) => {
-          const taskReceipt = taskReceiptsByMessageId.get(message.id) ?? null;
-          const lifecycle: ChatMessageLifecycle = resolveChatMessageLifecycle({
-            messageId: message.id,
-            streaming: ui.streaming,
-            enteringMessageIds
-          });
-          const canUseAssistantMore =
-            message.role === 'assistant'
-            && !message.toolInvocation
-            && isTerminalAssistantInUserTurn
-            && !ui.sending
-            && Boolean(message.content.trim());
-
-          const rowState: MessageRowState = {
-            editing: ui.editing?.messageId === message.id ? ui.editing : null,
-            isFocused: ui.focusedMessageId === message.id,
-            lifecycle,
-            isThinkingCollapsed: collapsedThinkingIds.has(message.id),
-            isCodeExpanded: expandedCodeIds.has(message.id),
-            canEdit: message.role === 'user' && !message.toolInvocation && !ui.sending,
-            canEditAssistant: canUseAssistantMore,
-            canRetry: canUseAssistantMore,
-            codeCardActionMode: ui.codeCardActionModeByMessageId[message.id] ?? 'hidden',
-            codeCardProgress: ui.codeCardProgressByMessageId[message.id] ?? null,
-            messageCycleIndex
-          };
-
-          return (
-            <TimelineMeasuredRow key={message.id} messageId={message.id} onMeasure={handleRowMeasure}>
-              <MessageRow
-                message={message}
-                resolvedCardReference={resolveChatCardReference(message.cardReference, composer.availableCards)}
-                fallbackAssistantName={presentation.fallbackAssistantName}
-                assistantAvatarUrl={assistantAvatarUrl}
-                assistantAvatarIconId={stablePayload.persona?.assistantAvatarIconId ?? null}
-                assistantAvatarShape={stablePayload.persona?.assistantAvatarShape ?? 'rounded'}
-                assistantAvatarSize={stablePayload.persona?.assistantAvatarSize ?? 'medium'}
-                assistantSigilSeed={presentation.activeCollaboratorId}
-                showChatAvatars={presentation.showChatAvatars}
-                showThinking={ui.showThinking}
-                state={rowState}
-                actions={rowActions}
-                userAvatarUrl={userAvatarUrl}
-                userAvatarIconId={stablePayload.persona?.userAvatarIconId ?? null}
-                userAvatarShape={stablePayload.persona?.userAvatarShape ?? 'circle'}
-                userAvatarSize={stablePayload.persona?.userAvatarSize ?? 'medium'}
-                toolMessages={toolMessages}
-                codeCardsById={codeCardsById}
-                userBubbleIndex={userBubbleIndex}
-                isAssistantContinuation={isAssistantContinuation}
-                isTerminalAssistantInUserTurn={isTerminalAssistantInUserTurn}
-                taskReceiptAction={taskReceipt ? {
-                  status: taskReceipt.task.status,
-                  expanded: expandedTaskReceiptMessageId === message.id,
-                  onToggle: () => setExpandedTaskReceiptMessageId((currentId) => (
-                    currentId === message.id ? null : message.id
-                  ))
-                } : null}
-              />
-              {taskReceipt && expandedTaskReceiptMessageId === message.id ? (
-                <div className="message-task-receipt-panel">
-                  <TaskRuntimeCard
-                    task={taskReceipt.task}
-                    executionSegments={taskReceipt.executionSegments}
-                    onCollapse={() => setExpandedTaskReceiptMessageId(null)}
-                  />
-                </div>
-              ) : null}
-            </TimelineMeasuredRow>
-          );
-        })}
+        {timelineWindow.visibleItems.map(item => renderTimelineRow(item))}
         {timelineWindow.bottomSpacerHeight > 0 ? (
           <div className="chat-flow-spacer" aria-hidden="true" style={{ height: `${timelineWindow.bottomSpacerHeight}px` }} />
         ) : null}

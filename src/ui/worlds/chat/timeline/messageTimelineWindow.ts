@@ -93,7 +93,8 @@ export function resolveTimelineWindow(
 
   const anchorMessageId = focusedMessageId ?? metrics.anchorMessageId ?? null;
   if (anchorMessageId) {
-    const anchorIndex = items.findIndex((item) => item.message.id === anchorMessageId);
+    const anchorIndex = items.findIndex((item) => item.message.id === anchorMessageId
+      || item.activityItems?.some(child => child.message.id === anchorMessageId || child.toolMessages.some(tool => tool.id === anchorMessageId)));
     if (anchorIndex >= 0) {
       start = Math.min(start, Math.max(0, anchorIndex - ANCHOR_OVERSCAN_ITEMS));
       end = Math.max(end, Math.min(items.length, anchorIndex + ANCHOR_OVERSCAN_ITEMS + 1));

@@ -583,7 +583,8 @@ describe('migratePersistedSpaceState', () => {
       displayPreferences: {
         appearance: 'system',
         hapticsEnabled: false,
-        fontScale: 1.12
+        fontScale: 1.12,
+        chatActivityDisplay: 'collapsed'
       },
       activeCardId: 'card-1'
     });

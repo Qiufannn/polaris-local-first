@@ -23,11 +23,13 @@ export type ProviderProtocol =
 export type AppBackgroundFit = 'cover' | 'contain';
 export type CustomFontScope = 'global' | 'titles' | 'chat' | 'cards';
 export type AppAppearancePreference = 'system' | 'light' | 'dark';
+export type ChatActivityDisplay = 'full' | 'collapsed' | 'hidden';
 
 export interface AppDisplayPreferences {
   appearance: AppAppearancePreference;
   hapticsEnabled: boolean;
   fontScale: number;
+  chatActivityDisplay?: ChatActivityDisplay;
 }
 
 export interface AppCustomization {

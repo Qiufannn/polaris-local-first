@@ -18,7 +18,8 @@ describe('normalizeDisplayPreferences', () => {
     })).toEqual({
       appearance: 'dark',
       hapticsEnabled: false,
-      fontScale: 1.5
+      fontScale: 1.5,
+      chatActivityDisplay: 'collapsed'
     });
   });
 
@@ -30,7 +31,8 @@ describe('normalizeDisplayPreferences', () => {
     })).toEqual({
       appearance: 'system',
       hapticsEnabled: true,
-      fontScale: 1
+      fontScale: 1,
+      chatActivityDisplay: 'collapsed'
     });
   });
 });
@@ -43,7 +45,10 @@ describe('mergeDisplayPreferencesPatch', () => {
     })).toEqual({
       appearance: 'light',
       hapticsEnabled: false,
-      fontScale: 0.9
+      fontScale: 0.9,
+      chatActivityDisplay: 'collapsed'
     });
   });
 });
+
+describe('activity display persistence',()=>{it('round-trips every display mode and defaults unknown modes',()=>{for(const chatActivityDisplay of ['full','collapsed','hidden']as const){expect(normalizeDisplayPreferences(JSON.parse(JSON.stringify(mergeDisplayPreferencesPatch(DEFAULT_DISPLAY_PREFERENCES,{chatActivityDisplay}))))).toMatchObject({chatActivityDisplay});}expect(normalizeDisplayPreferences({chatActivityDisplay:'unknown'}).chatActivityDisplay).toBe('collapsed');});});

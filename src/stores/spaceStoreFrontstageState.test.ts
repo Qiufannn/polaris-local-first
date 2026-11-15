@@ -138,7 +138,8 @@ describe('migratePersistedSpaceFrontstageState', () => {
     }).displayPreferences).toEqual({
       appearance: 'system',
       hapticsEnabled: false,
-      fontScale: 1.08
+      fontScale: 1.08,
+      chatActivityDisplay: 'collapsed'
     });
   });
 
@@ -185,7 +186,8 @@ describe('serializePersistedSpaceFrontstageState', () => {
       displayPreferences: {
         appearance: 'system',
         hapticsEnabled: false,
-        fontScale: 1.12
+        fontScale: 1.12,
+        chatActivityDisplay: 'collapsed'
       },
       activeCardId: 'card-1'
     });

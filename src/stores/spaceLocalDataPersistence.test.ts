@@ -89,7 +89,8 @@ function spaceState(overrides: Partial<SpaceLocalDataState> = {}): SpaceLocalDat
     displayPreferences: {
       appearance: 'system',
       hapticsEnabled: true,
-      fontScale: 1
+      fontScale: 1,
+      chatActivityDisplay: 'collapsed'
     },
     activeCardId: null,
     theme,

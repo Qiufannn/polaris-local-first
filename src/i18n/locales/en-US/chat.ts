@@ -1,6 +1,10 @@
 import type { chat as zhChat } from '../zh-CN/chat';
 
 export const chat = {
+  'chat.activity.count': 'Action history · {count}',
+  'chat.activity.attention': 'Needs attention',
+  'chat.activity.running': 'In progress',
+  'chat.activity.done': 'Completed',
   'chat.untitledConversation': 'Untitled conversation',
   'chat.composer.dismissAttachments': 'Collapse attachment drawer',
   'chat.composer.attachmentsToggle': 'Add attachments or send a specific card',

@@ -627,3 +627,11 @@ html[data-native-keyboard-overlay='true'][data-keyboard-open='true'] .assistant-
 .tool-event-live-dots span { width: 4px; height: 4px; border-radius: 999px; background: currentColor; opacity: 0.28; animation: softPulse 1.2s ease-in-out infinite; }
 .tool-event-live-dots span:nth-child(2) { animation-delay: .15s; }
 .tool-event-live-dots span:nth-child(3) { animation-delay: .3s; }
+.tool-activity-group { min-width: 0; max-width: 100%; color: var(--text-muted); }
+.tool-activity-summary { display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; min-height: 36px; padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--border) 35%, transparent); border-radius: 18px; background: color-mix(in srgb, var(--surface) 30%, transparent); font-size: var(--type-caption); cursor: pointer; list-style: none; }
+.tool-activity-summary::-webkit-details-marker { display: none; }
+.tool-activity-summary small { color: var(--text-soft); font-size: inherit; }
+.tool-activity-chevron { display: inline-flex; transform: rotate(0deg); }
+.tool-activity-group[open] > .tool-activity-summary .tool-activity-chevron { transform: rotate(90deg); }
+.tool-activity-body { display: flex; flex-direction: column; gap: 12px; padding-top: 10px; }
+.tool-activity-group:not([open]) > .tool-activity-body { display: none; }

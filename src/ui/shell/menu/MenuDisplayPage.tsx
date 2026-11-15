@@ -12,6 +12,7 @@ type MenuDisplayPageProps = {
   onBack: () => void;
   onSetAppearance: (appearance: AppAppearancePreference) => void;
   onSetHapticsEnabled: (enabled: boolean) => void;
+  onSetChatActivityDisplay: (value: NonNullable<AppDisplayPreferences['chatActivityDisplay']>) => void;
 };
 
 function getAppearanceOptions(t: I18nTranslator['t']): Array<{
@@ -42,7 +43,8 @@ export function MenuDisplayPage({
   displayPreferences,
   onBack,
   onSetAppearance,
-  onSetHapticsEnabled
+  onSetHapticsEnabled,
+  onSetChatActivityDisplay
 }: MenuDisplayPageProps) {
   const { t } = useI18n();
   const appearanceOptions = useMemo(() => getAppearanceOptions(t), [t]);
@@ -61,6 +63,18 @@ export function MenuDisplayPage({
 
       <section className="menu-section menu-display-preferences-section">
         <div className="menu-preference-list">
+          <label className="menu-preference-row">
+            <span className="menu-preference-copy">
+              <strong>{t('settings.display.activityTitle')}</strong>
+              <small>{t('settings.display.activityDetail')}</small>
+            </span>
+            <select aria-label={t('settings.display.activityTitle')} value={displayPreferences.chatActivityDisplay ?? 'collapsed'}
+              onChange={event => onSetChatActivityDisplay(event.target.value as NonNullable<AppDisplayPreferences['chatActivityDisplay']>)}>
+              <option value="full">{t('settings.display.activityFull')}</option>
+              <option value="collapsed">{t('settings.display.activityCollapsed')}</option>
+              <option value="hidden">{t('settings.display.activityHidden')}</option>
+            </select>
+          </label>
           <div className="menu-preference-row menu-preference-row--appearance">
             <span className="menu-preference-copy">
               <strong>{t('settings.display.appearanceTitle')}</strong>

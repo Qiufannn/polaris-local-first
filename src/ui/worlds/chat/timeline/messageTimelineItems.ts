@@ -7,6 +7,7 @@ export type TimelineRenderItem = {
   userBubbleIndex?: number;
   isAssistantContinuation: boolean;
   isTerminalAssistantInUserTurn: boolean;
+  activityItems?: TimelineRenderItem[];
 };
 
 const EMPTY_TOOL_MESSAGES: ChatMessage[] = [];

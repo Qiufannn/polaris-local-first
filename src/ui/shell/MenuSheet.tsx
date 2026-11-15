@@ -262,6 +262,7 @@ export function MenuSheet({
             onBack={() => controller.onSetPage('root')}
             onSetAppearance={controller.onSetAppearance}
             onSetHapticsEnabled={controller.onSetHapticsEnabled}
+            onSetChatActivityDisplay={controller.onSetChatActivityDisplay}
           />
         ) : null}
         {visiblePage === 'fonts' ? (

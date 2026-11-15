@@ -3,7 +3,7 @@ import { buildCardReference } from '../../../../app/collection/codeCollectionSou
 import { resolveAssistantStreamingChrome, type ChatMessageLifecycle } from '../../../../app/chat/chatStreamingDisplay';
 import { writeTextToClipboard } from '../../../../infrastructure/clipboard';
 import type { CodeCardActionMode, CodeCardMessageProgress } from '../../../../app/chat/chatDerivedState';
-import type { AvatarDisplaySize, AvatarIconId, AvatarShape, ChatAttachment, ChatCardReference, ChatMessage, ChatMessageVoiceCache, CodeCard } from '../../../../types/domain';
+import type { AvatarDisplaySize, AvatarIconId, AvatarShape, ChatActivityDisplay, ChatAttachment, ChatCardReference, ChatMessage, ChatMessageVoiceCache, CodeCard } from '../../../../types/domain';
 import { PersonaAvatar } from '../../../collaborator/PersonaAvatar';
 import { resolveChatAvatarSize } from '../../../collaborator/avatarDisplaySize';
 import { Icon } from '../../../Icon';
@@ -20,6 +20,8 @@ import { MessageEditInline } from './MessageEditInline';
 import { MessageMeta } from './MessageMeta';
 import { MessageGeneratedImages } from './MessageGeneratedImages';
 import { MessageToolEvent } from './MessageToolEvent';
+import { ToolActivityGroup } from './ToolActivityGroup';
+import { needsActivityAttention } from '../timeline/messageTimelineActivity';
 import { isProjectedCodeToolName } from './projectedCodeTools';
 import { buildAssistantSpeechText } from './messageSpeechText';
 import {
@@ -80,6 +82,7 @@ type MessageRowProps = {
   assistantSigilSeed: string | null;
   showChatAvatars: boolean;
   showThinking: boolean;
+  activityDisplay?: ChatActivityDisplay;
   state: MessageRowState;
   actions: MessageRowActions;
   userAvatarUrl: string | null;
@@ -105,6 +108,7 @@ function MessageRowComponent({
   assistantSigilSeed,
   showChatAvatars,
   showThinking,
+  activityDisplay = 'full',
   state,
   actions,
   userAvatarUrl,
@@ -120,6 +124,7 @@ function MessageRowComponent({
 }: MessageRowProps) {
   const { t } = useI18n();
   const isToolEvent = Boolean(message.toolInvocation);
+  const visibleReceipts = activityDisplay === 'hidden' ? toolMessages.filter(needsActivityAttention) : toolMessages;
   const isAssistantReply = message.role === 'assistant' && !isToolEvent;
   const isUserMessage = message.role === 'user' && !isToolEvent;
   const isPlainSystemMessage = message.role === 'system' && !isToolEvent;
@@ -198,6 +203,9 @@ function MessageRowComponent({
         onSave={(attachment) => actions.saveImageAttachment(toolMessage, attachment)}
       />
     ) : null;
+    const files = (toolMessage.attachments ?? []).filter(attachment => attachment.kind !== 'image');
+    const filesNode = activityDisplay === 'hidden' && !needsActivityAttention(toolMessage) && files.length > 0 ? <ChatAttachmentStrip attachments={files} tone="message"
+      onSaveImage={attachment => actions.saveImageAttachment(toolMessage, attachment)} /> : null;
 
     const cardNode = (() => {
       if (toolMessages.length > 0 && !visibleToolProductCardMessageIds.has(toolMessage.id)) return null;
@@ -217,14 +225,16 @@ function MessageRowComponent({
       );
     })();
 
-    if (!imagesNode && !cardNode) return null;
+    if (!imagesNode && !cardNode && !filesNode) return null;
     return (
       <>
         {imagesNode}
+        {filesNode}
         {cardNode}
       </>
     );
   };
+  const toolProducts = toolMessages.map(toolMessage => ({ id: toolMessage.id, node: renderToolProductCard(toolMessage) })).filter(product => product.node);
   const messageActions = isAssistantReply && !state.editing ? (
     <MessageActions
       canCopyAssistant={message.role === 'assistant' && !message.toolInvocation && !isStreamingLike && isTerminalAssistantInUserTurn && Boolean(message.content.trim())}
@@ -406,6 +416,7 @@ function MessageRowComponent({
     >
       {isToolEvent ? (
         <div className="tool-product-stack">
+          <ToolActivityGroup mode={activityDisplay} messages={[message]} forceOpen={state.isFocused}>
           <MessageToolEvent
             message={message}
             onSaveImageAttachment={actions.saveImageAttachment}
@@ -415,6 +426,7 @@ function MessageRowComponent({
             onOpenToolbox={actions.openToolbox}
             onInteractionBoundary={markToolReceiptInteraction}
           />
+          </ToolActivityGroup>
           {renderToolProductCard(message)}
         </div>
       ) : isPlainSystemMessage ? (
@@ -462,9 +474,10 @@ function MessageRowComponent({
                 />
               ) : null}
               {messageBubble}
-              {toolMessages.length > 0 ? (
+              {visibleReceipts.length > 0 || toolProducts.length > 0 ? (
                 <div className="assistant-leading-tool-list">
-                  {toolMessages.map((toolMessage) => (
+                  <ToolActivityGroup mode={activityDisplay} messages={visibleReceipts}>
+                  {visibleReceipts.map((toolMessage) => (
                     <div key={toolMessage.id} className="tool-product-stack">
                       <MessageToolEvent
                         message={toolMessage}
@@ -475,9 +488,10 @@ function MessageRowComponent({
                         onOpenToolbox={actions.openToolbox}
                         onInteractionBoundary={markToolReceiptInteraction}
                       />
-                      {renderToolProductCard(toolMessage)}
                     </div>
                   ))}
+                  </ToolActivityGroup>
+                  {toolProducts.map(product => <div key={`product:${product.id}`}>{product.node}</div>)}
                 </div>
               ) : null}
               {messageActions}
@@ -522,6 +536,7 @@ function areMessageRowPropsEqual(previous: MessageRowProps, next: MessageRowProp
     && previous.assistantSigilSeed === next.assistantSigilSeed
     && previous.showChatAvatars === next.showChatAvatars
     && previous.showThinking === next.showThinking
+    && previous.activityDisplay === next.activityDisplay
     && previous.userAvatarUrl === next.userAvatarUrl
     && previous.userAvatarIconId === next.userAvatarIconId
     && previous.userAvatarShape === next.userAvatarShape

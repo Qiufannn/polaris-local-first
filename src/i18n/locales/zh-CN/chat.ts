@@ -1,4 +1,8 @@
 export const chat = {
+  'chat.activity.count': '行动记录 · {count} 项',
+  'chat.activity.attention': '需要查看',
+  'chat.activity.running': '处理中',
+  'chat.activity.done': '已完成',
   'chat.untitledConversation': '未命名对话',
   'chat.composer.dismissAttachments': '收起附件抽屉',
   'chat.composer.attachmentsToggle': '添加附件，或发送指定卡片',

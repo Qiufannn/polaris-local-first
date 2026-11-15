@@ -10,7 +10,8 @@ function clamp(value: number, min: number, max: number) {
 export const DEFAULT_DISPLAY_PREFERENCES: AppDisplayPreferences = {
   appearance: 'system',
   hapticsEnabled: false,
-  fontScale: 1
+  fontScale: 1,
+  chatActivityDisplay: 'collapsed'
 };
 
 export function normalizeAppearancePreference(value: unknown): AppAppearancePreference {
@@ -32,6 +33,8 @@ export function normalizeDisplayPreferences(
       typeof source.hapticsEnabled === 'boolean'
         ? source.hapticsEnabled
         : DEFAULT_DISPLAY_PREFERENCES.hapticsEnabled,
+    chatActivityDisplay: source.chatActivityDisplay === 'full' || source.chatActivityDisplay === 'hidden'
+      ? source.chatActivityDisplay : 'collapsed',
     fontScale:
       typeof source.fontScale === 'number'
         ? clamp(source.fontScale, FONT_SCALE_MIN, FONT_SCALE_MAX)

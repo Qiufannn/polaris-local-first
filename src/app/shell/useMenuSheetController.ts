@@ -325,6 +325,7 @@ export function useMenuSheetController({
     onSetAppearance: (appearance: typeof displayPreferences.appearance) => setDisplayPreferences({ appearance }),
     onSetDisplayFontScale: (fontScale: number) => setDisplayPreferences({ fontScale }),
     onSetHapticsEnabled: (enabled: boolean) => setDisplayPreferences({ hapticsEnabled: enabled }),
+    onSetChatActivityDisplay: (chatActivityDisplay: NonNullable<typeof displayPreferences.chatActivityDisplay>) => setDisplayPreferences({ chatActivityDisplay }),
     onDeleteCustomFont: fontLibrary.onDeleteCustomFont,
     onRefreshStorageHealth: () => refreshStorageHealth({ includeRuntimeLog: true }),
     onClearDiagnostics: clearDiagnostics,
