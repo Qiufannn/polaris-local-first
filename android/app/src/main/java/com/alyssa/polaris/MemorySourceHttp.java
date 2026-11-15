@@ -21,14 +21,21 @@ final class MemorySourceHttp {
         Result(int status, String body, Map<String, String> headers) { this.status = status; this.body = body; this.headers = headers; }
     }
     interface Transport { Result send(String url, String method, String body, String type, String bearer, Map<String, String> headers) throws Exception; }
+    static final class Failure extends Exception {
+        final int status;
+        Failure(int status) { super("授权来源未接受读取（HTTP " + status + "），请检查授权及页面或仓库范围。"); this.status = status; }
+    }
 
     static Result send(String url, String method, String body, String type, String bearer, Map<String, String> extra) throws Exception {
         URI uri = new URI(url);
         String host = uri.getHost(), path = uri.getRawPath();
         boolean allowed = "mcp.notion.com".equals(host) && ("/mcp".equals(path) || "/register".equals(path) || "/token".equals(path));
         allowed |= "github.com".equals(host) && ("/login/device/code".equals(path) || "/login/oauth/access_token".equals(path));
+        boolean githubContent = "api.github.com".equals(host) && path.matches("/repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/contents/.+");
         allowed |= "api.github.com".equals(host) && path.startsWith("/repos/") && "GET".equals(method);
-        if (!allowed || !"https".equals(uri.getScheme()) || uri.getUserInfo() != null || uri.getPort() != -1 || uri.getRawQuery() != null || uri.getFragment() != null) throw new Exception("授权连接地址不受支持。");
+        allowed |= githubContent && "PUT".equals(method);
+        boolean pinnedRead = githubContent && "GET".equals(method) && uri.getRawQuery() != null && uri.getRawQuery().matches("(?i)ref=(?:[a-f0-9]{40}|[a-f0-9]{64})");
+        if (!allowed || !"https".equals(uri.getScheme()) || uri.getUserInfo() != null || uri.getPort() != -1 || (uri.getRawQuery() != null && !pinnedRead) || uri.getFragment() != null) throw new Exception("授权连接地址不受支持。");
         // Provider credentials never cross to another service or an OAuth registration endpoint.
         if (bearer != null && !("api.github.com".equals(host) || ("mcp.notion.com".equals(host) && "/mcp".equals(path)))) throw new Exception("授权凭证目标不正确。");
         HttpURLConnection http = (HttpURLConnection) uri.toURL().openConnection();
@@ -36,6 +43,7 @@ final class MemorySourceHttp {
             http.setInstanceFollowRedirects(false); http.setConnectTimeout(20000); http.setReadTimeout(45000); http.setRequestMethod(method);
             http.setRequestProperty("Accept", "mcp.notion.com".equals(host) && "/mcp".equals(path) ? "application/json, text/event-stream" : "application/json");
             http.setRequestProperty("User-Agent", "Polaris-Android-Memory");
+            http.setRequestProperty("Cache-Control", "no-cache");
             if (bearer != null) http.setRequestProperty("Authorization", "Bearer " + bearer);
             if ("api.github.com".equals(host)) http.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
             for (String key : new String[] {"Mcp-Session-Id", "MCP-Protocol-Version"}) {

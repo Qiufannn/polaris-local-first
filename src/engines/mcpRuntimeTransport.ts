@@ -18,6 +18,7 @@ export type McpTransportOptions = {
   server: McpServerConfig;
   timeoutMs: number;
   fetchImpl?: typeof fetch;
+  memoryWriteAuthorized?: boolean;
 };
 
 export type InitializeResult = {

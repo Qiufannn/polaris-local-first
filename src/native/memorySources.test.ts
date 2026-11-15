@@ -8,6 +8,16 @@ import type { McpServerConfig } from '../types/domain';
 function source(kind:'notion-memory-oauth'|'github-memory-device'):McpServerConfig{return{id:'mcp-unit',handle:'memory',name:'Memory',description:'',transport:'streamable-http',authKind:kind,url:kind==='notion-memory-oauth'?'https://mcp.notion.com/mcp':'https://api.github.com/repos/unit-owner/unit-memory',publicClientId:kind==='github-memory-device'?'Iv1.0123456789abcdef':undefined,headers:[],isActive:true};}
 afterEach(()=>{vi.clearAllMocks();vi.unstubAllGlobals();mocks.native=true;mocks.available=true;clearMcpToolCatalogCacheForTests();});
 describe('native primary memory sources',()=>{
+ it('keeps per-call write authorization outside model-supplied RPC arguments',async()=>{
+  const server=source('github-memory-device');
+  mocks.request.mockImplementation(async({body,userWriteRequested})=>{const r=JSON.parse(body);if(r.method==='notifications/initialized')return{status:202,data:'',headers:{}};
+   const result=r.method==='initialize'?{protocolVersion:'2025-03-26',capabilities:{tools:{}}}:r.method==='tools/list'?{tools:[{name:'github_memory_write',inputSchema:{type:'object'}}]}:{isError:!userWriteRequested,structuredContent:{verified:!!userWriteRequested},content:[{type:'text',text:userWriteRequested?'unit verified receipt':'unit request denied'}]};
+   return{status:200,data:JSON.stringify({jsonrpc:'2.0',id:r.id,result}),headers:{}};});
+  const catalog=await resolveMcpToolCatalog({servers:[server],retryDelaysMs:[],timeoutSeconds:1});
+  const denied=await invokeMcpTool({tool:catalog.tools[0],argumentsObject:{userWriteRequested:true},timeoutSeconds:1});expect(denied.ok&&denied.isError).toBe(true);
+  const accepted=await invokeMcpTool({tool:catalog.tools[0],argumentsObject:{path:'continuity/unit.md'},memoryWriteAuthorized:true,timeoutSeconds:1});expect(accepted.ok&&accepted.structuredContent).toEqual({verified:true});
+  const calls=mocks.request.mock.calls.map(([a])=>a).filter(a=>JSON.parse(a.body).method==='tools/call');expect(calls[0].userWriteRequested).toBeUndefined();expect(calls[1].userWriteRequested).toBe(true);expect(JSON.parse(calls[1].body).params.arguments.userWriteRequested).toBeUndefined();
+ });
  it.each(['notion-memory-oauth','github-memory-device'] as const)('retains resource and public profile through catalog and invocation: %s',async kind=>{
   const server=source(kind),fetch=vi.fn();vi.stubGlobal('fetch',fetch);
   const name=kind==='notion-memory-oauth'?'notion-fetch':'github_memory_read';

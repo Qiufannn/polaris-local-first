@@ -22,6 +22,7 @@ final class MemorySourceSession {
     private int responseFailures;
     private final AtomicLong generation = new AtomicLong();
     private final Object authorizationState = new Object();
+    final Object writeLock = new Object();
     long generation() { return generation.get(); }
 
     MemorySourceSession(String kind, String endpoint, String clientId, ChatGptSession.Storage store, MemorySourceHttp.Transport http) throws Exception {
@@ -41,7 +42,8 @@ final class MemorySourceSession {
         JSONObject c = connection();
         boolean connected = c != null && !c.optString("access_token").isEmpty()
             && (c.optLong("expires_at") == 0 || c.optLong("expires_at") > clock.getAsLong() || !c.optString("refresh_token").isEmpty());
-        JSONObject status = new JSONObject().put("connected", connected).put("provider", kind).put("pending", pending != null && clock.getAsLong() < pendingUntil);
+        JSONObject status = new JSONObject().put("connected", connected).put("provider", kind).put("pending", pending != null && clock.getAsLong() < pendingUntil)
+            .put("writingEnabled", MemorySourcePolicy.GITHUB.equals(kind) && store.load().optBoolean("github_write_enabled", false));
         if (status.getBoolean("pending")) status.put("userCode", pending.optString("user_code")).put("pollAfterSeconds", interval);
         return status;
     }
@@ -161,6 +163,23 @@ final class MemorySourceSession {
     }
     void cancel() { synchronized (authorizationState) { pending = null; generation.incrementAndGet(); } }
     synchronized void disconnect() throws Exception { cancel(); store.reset(); }
+    synchronized JSONObject setWritingEnabled(boolean enabled) throws Exception {
+        if (!MemorySourcePolicy.GITHUB.equals(kind) || !status().getBoolean("connected")) throw new Exception("GitHub 记忆写回请先连接此仓库。");
+        JSONObject database = store.load(); database.put("github_write_enabled", enabled); store.save(database); return status();
+    }
+    synchronized void requireWritingEnabled() throws Exception {
+        if (!MemorySourcePolicy.GITHUB.equals(kind) || !status().getBoolean("connected") || !store.load().optBoolean("github_write_enabled", false)) throw new Exception("GitHub 记忆写回未开启，请先在此服务卡允许新增和更正记忆。");
+    }
+    synchronized JSONObject writeReceipt(String fingerprint) throws Exception {
+        JSONArray receipts = store.load().optJSONArray("github_write_receipts");
+        if (receipts != null) for (int i = receipts.length() - 1; i >= 0; i--) if (fingerprint.equals(receipts.getJSONObject(i).optString("fingerprint"))) return new JSONObject(receipts.getJSONObject(i).toString());
+        return null;
+    }
+    synchronized void saveWriteReceipt(JSONObject receipt) throws Exception {
+        JSONObject database = store.load(); JSONArray previous = database.optJSONArray("github_write_receipts"), next = new JSONArray();
+        if (previous != null) for (int i = Math.max(0, previous.length() - 11); i < previous.length(); i++) if (!receipt.getString("fingerprint").equals(previous.getJSONObject(i).optString("fingerprint"))) next.put(previous.getJSONObject(i));
+        next.put(receipt); database.put("github_write_receipts", next); store.save(database);
+    }
     private synchronized String access(boolean force, String rejected) throws Exception {
         JSONObject c = connection();
         if (c == null || c.optString("access_token").isEmpty()) throw new Exception("尚未连接这个记忆来源，请先完成登录。");
@@ -183,24 +202,40 @@ final class MemorySourceSession {
             saveToken(next, c.getString("client_id"), c.optString("redirect_uri", null), true); return connection().getString("access_token");
         }
     }
-    MemorySourceHttp.Result authorized(String url, String method, String body, Map<String, String> headers) throws Exception {
+    MemorySourceHttp.Result sourceRequest(String url, String method, String body, Map<String, String> headers) throws Exception {
+        java.net.URI target = new java.net.URI(url);
+        boolean pinnedRead = "GET".equals(method) && target.getRawQuery() != null && target.getRawQuery().matches("(?i)ref=(?:[a-f0-9]{40}|[a-f0-9]{64})");
         if (MemorySourcePolicy.NOTION.equals(kind) ? (!MemorySourcePolicy.NOTION_MCP.equals(url) || !("POST".equals(method) || "DELETE".equals(method)))
-            : (!url.startsWith(endpoint + "/contents/") || !"GET".equals(method))) throw new Exception("授权凭证不能用于其他来源。");
+            : (!url.startsWith(endpoint + "/contents/") || !("GET".equals(method) || "PUT".equals(method)) || (target.getRawQuery() != null && !pinnedRead) || target.getRawFragment() != null)) throw new Exception("授权凭证不能用于其他来源。");
+        if (MemorySourcePolicy.GITHUB.equals(kind)) {
+            String prefix = new java.net.URI(endpoint).getPath() + "/contents/";
+            if (!target.getPath().startsWith(prefix)) throw new Exception("授权记忆文件路径不正确。");
+            String canonical = MemorySourcePolicy.contentUrl(endpoint, target.getPath().substring(prefix.length()), pinnedRead ? target.getRawQuery().substring(4) : null);
+            if (!canonical.equals(url)) throw new Exception("授权记忆文件地址不正确。");
+        }
+        if ("PUT".equals(method)) requireWritingEnabled();
         long captured = generation.get();
         String token = access(false, null);
         for (int attempt = 0; attempt < 2; attempt++) {
+            if ("PUT".equals(method)) requireWritingEnabled();
             synchronized (this) { if (captured != generation.get()) throw new Exception("授权状态已改变，请重新读取。"); }
             MemorySourceHttp.Result result = http.send(url, method, body, "application/json", token, headers);
             if (result.status == 401 && attempt == 0) { token = access(true, token); continue; }
-            if (result.status < 200 || result.status >= 300) throw new Exception("授权来源未接受读取（HTTP " + result.status + "），请检查授权及页面或仓库范围。");
             synchronized (this) { if (captured != generation.get()) throw new Exception("授权状态已改变，请重新读取。"); }
             return result;
         }
         throw new Exception("授权读取未完成。");
     }
+    MemorySourceHttp.Result authorized(String url, String method, String body, Map<String, String> headers) throws Exception {
+        MemorySourceHttp.Result result = sourceRequest(url, method, body, headers);
+        if (result.status < 200 || result.status >= 300) throw new MemorySourceHttp.Failure(result.status);
+        return result;
+    }
     JSONObject githubFile(String path) throws Exception {
-        String encoded = MemorySourcePolicy.file(path);
-        JSONObject file = new JSONObject(authorized(endpoint + "/contents/" + encoded, "GET", null, new HashMap<>()).body);
+        return githubFile(path, null);
+    }
+    JSONObject githubFile(String path, String commit) throws Exception {
+        JSONObject file = new JSONObject(authorized(MemorySourcePolicy.contentUrl(endpoint, path, commit), "GET", null, new HashMap<>()).body);
         if (!"file".equals(file.optString("type")) || !"base64".equals(file.optString("encoding")) || !path.equals(file.optString("path")) || !file.optString("sha").matches("(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})") || file.optLong("size") > 512 * 1024) throw new Exception("授权仓库未返回受支持的记忆文件。");
         byte[] content = Base64.getMimeDecoder().decode(file.getString("content"));
         if (content.length > 512 * 1024) throw new Exception("授权记忆文件过大。");

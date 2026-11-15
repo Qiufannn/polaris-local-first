@@ -423,6 +423,7 @@ export async function invokeMcpTool(args: {
   timeoutSeconds?: number;
   headers?: McpServerHeader[];
   fetchImpl?: typeof fetch;
+  memoryWriteAuthorized?: boolean;
 }): Promise<McpToolCallResult> {
   const server: McpServerConfig = {
     id: args.tool.serverId,
@@ -448,6 +449,7 @@ export async function invokeMcpTool(args: {
     : await callToolViaStreamableHttp(args.tool, args.argumentsObject, {
         server,
         timeoutMs,
-        fetchImpl: args.fetchImpl
+        fetchImpl: args.fetchImpl,
+        memoryWriteAuthorized: args.memoryWriteAuthorized
       });
 }

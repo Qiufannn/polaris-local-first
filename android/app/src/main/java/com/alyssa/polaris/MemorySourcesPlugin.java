@@ -47,6 +47,10 @@ public class MemorySourcesPlugin extends Plugin {
     @PluginMethod public void status(PluginCall call) {
         executor.execute(() -> { try { call.resolve(JSObject.fromJSONObject(session(call).status())); } catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); } });
     }
+    @PluginMethod public void setWritingEnabled(PluginCall call) {
+        executor.execute(() -> { try { call.resolve(JSObject.fromJSONObject(session(call).setWritingEnabled(call.getBoolean("enabled", false)))); }
+            catch (Exception e) { call.reject(MemorySourceOAuth.safe(e)); } });
+    }
     @PluginMethod public void githubStart(PluginCall call) {
         executor.execute(() -> { try {
             MemorySourceSession s = session(call); if (!MemorySourcePolicy.GITHUB.equals(s.kind)) throw new Exception("授权来源不是 GitHub。");
@@ -117,13 +121,13 @@ public class MemorySourcesPlugin extends Plugin {
                     JSONObject result;
                     String operation = rpc.optString("method");
                     if ("initialize".equals(operation)) result = new JSONObject().put("protocolVersion", "2025-03-26").put("capabilities", new JSONObject().put("tools", new JSONObject())).put("serverInfo", new JSONObject().put("name", "Polaris GitHub memory adapter").put("version", "1"));
-                    else if ("tools/list".equals(operation)) result = new JSONObject().put("tools", new JSONArray().put(new JSONObject().put("name", "github_memory_read")
-                        .put("description", "只读 GitHub 连续性记忆。明确要求接续时先读 continuity/identity.md，再读 README.md、continuity/README.md、continuity/index.md，随后按需读取；普通闲聊不自动扫描。")
-                        .put("inputSchema", new JSONObject().put("type", "object").put("required", new JSONArray().put("path")).put("properties", new JSONObject().put("path", new JSONObject().put("type", "string"))).put("additionalProperties", false))));
+                    else if ("tools/list".equals(operation)) result = GitHubMemoryTools.catalog(s.status().optBoolean("writingEnabled"));
                     else if ("notifications/initialized".equals(operation)) { call.resolve(new JSObject().put("status", 202).put("data", "").put("headers", new JSObject())); return; }
                     else {
-                        JSONObject file = s.githubFile(rpc.getJSONObject("params").getJSONObject("arguments").getString("path"));
-                        result = new JSONObject().put("structuredContent", file).put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", file.toString())));
+                        JSONObject params = rpc.getJSONObject("params"), args = params.getJSONObject("arguments");
+                        boolean writing = "github_memory_write".equals(params.getString("name"));
+                        JSONObject file = writing ? new GitHubMemoryWriter(s).write(args, call.getBoolean("userWriteRequested", false)) : s.githubFile(args.getString("path"));
+                        result = new JSONObject().put("isError", writing && !file.optBoolean("verified")).put("structuredContent", file).put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", file.toString())));
                     }
                     call.resolve(new JSObject().put("status", 200).put("data", new JSONObject().put("jsonrpc", "2.0").put("id", rpc.opt("id")).put("result", result).toString()).put("headers", new JSObject()));
                 }

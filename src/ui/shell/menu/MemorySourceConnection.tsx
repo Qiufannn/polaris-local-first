@@ -8,6 +8,7 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
   server: McpServerConfig | null; onReady: (value: boolean) => void; onEnable: () => void; onTools: (tools: McpServerToolConfig[]) => void;
 }) {
   const [connected, setConnected] = useState(false), [busy, setBusy] = useState(''), [message, setMessage] = useState(''), [code, setCode] = useState('');
+  const [writingEnabled, setWritingEnabled] = useState(false);
   const version = useRef(0), activeLogin = useRef(false);
   const available = canUseMemorySources();
   const key = server ? JSON.stringify([server.id, server.authKind, server.url, server.publicClientId]) : '';
@@ -17,8 +18,10 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
 
   useEffect(() => {
     const stamp = ++version.current; setConnected(false); onReady(false); setMessage(''); setCode(''); setBusy(''); activeLogin.current = false;
+    setWritingEnabled(false);
     if (available && address) void memorySources.status(address).then(status => {
       if (stamp !== version.current) return; setConnected(status.connected); onReady(status.connected);
+      setWritingEnabled(status.writingEnabled === true);
       if (status.pending && status.userCode) { setCode(status.userCode); setMessage('还有一次待接收的 GitHub 授权；若网页已批准，点“继续接收 GitHub 授权结果”，无需再次批准。'); }
     }).catch(error => { if (stamp === version.current) setMessage(error instanceof Error ? error.message : '无法读取本机连接。'); });
     return () => { version.current++; if (activeLogin.current && address) void memorySources.cancel(address).catch(() => undefined); };
@@ -39,9 +42,24 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
 
   return <section className="mcp-test-panel" aria-label="记忆来源授权">
     <strong>{server?.authKind === 'github-memory-device' ? 'GitHub 主记忆' : 'Notion 日记与补充资料'}</strong>
-    <p>先验证读取，凭证只放在原生安全存储。这一步不自动上传聊天，也不修改记忆文件；GitHub 的新增和更正接在读取验证之后。</p>
+    <p>GitHub 是主记忆，Notion 是日记与补充。GitHub 写回需要开启下方开关，并由你明确要求记住、更正或写入；普通闲聊不会逐条上传。Notion 目前提供日记读取。</p>
     {!available ? <p>请安装包含这两个入口的 Android 更新版。</p> : !address ? <p>填好后先保存，再重新打开服务卡连接。</p> : <>
       <p>{connected ? '已有本机授权，实际内容仍需验证。' : '尚未连接。'}</p>
+      {github && connected && <label className="menu-preference-row menu-preference-row--switch">
+        <span className="menu-preference-copy"><strong>允许 GitHub 新增和更正记忆</strong>
+          <small>需将原 GitHub App 的 Contents 权限改为 Read and write 并批准安装更新。开启后同步写回工具；真实写入成功后才会有提交回执。</small></span>
+        <input type="checkbox" aria-label="允许 GitHub 新增和更正记忆" checked={writingEnabled} disabled={Boolean(busy)} onChange={event => {
+          const enabled = event.target.checked;
+          void run('writing', async valid => {
+            const status = await memorySources.setWritingEnabled({ ...address, enabled }); if (!valid()) return;
+            setWritingEnabled(status.writingEnabled === true);
+            const catalog = await resolveMcpToolCatalog({ servers: [{ ...server!, isActive: true }], timeoutSeconds: 45, retryDelaysMs: [], useCachedOnFailure: false, includeDisabledTools: true });
+            if (!valid()) return; if (catalog.errors.length) throw new Error(catalog.errors.join('\n'));
+            onTools(catalog.tools.map(tool => ({ name: tool.toolName, description: tool.description, inputSchema: tool.inputSchema, enabled: true })));
+            setMessage(enabled ? '写回工具已同步。先保存；之后明确要求记住或更正时，会核对文件版本、提交并回读。' : '已关闭写回，保留读取工具。请保存。');
+          });
+        }} />
+      </label>}
       <div className="provider-inline-actions">
         <button type="button" className="mcp-btn secondary" disabled={Boolean(busy)} onClick={() => void run('login', async valid => {
           if (github) {
@@ -60,7 +78,7 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
           version.current++; activeLogin.current = false; setBusy(''); setCode(''); void memorySources.cancel(address).catch(() => undefined);
         }}>取消登录</button>}
         {connected && <button type="button" className="mcp-btn secondary" disabled={Boolean(busy)} onClick={() => void run('verify', async valid => {
-          const catalog = await resolveMcpToolCatalog({ servers: [{ ...server!, isActive: true }], timeoutSeconds: 45, retryDelaysMs: [], includeDisabledTools: true });
+          const catalog = await resolveMcpToolCatalog({ servers: [{ ...server!, isActive: true }], timeoutSeconds: 45, retryDelaysMs: [], useCachedOnFailure: false, includeDisabledTools: true });
           if (!valid()) return;
           if (catalog.errors.length) throw new Error(catalog.errors.join('\n'));
           onTools(catalog.tools.map(tool => ({ name: tool.toolName, description: tool.description, inputSchema: tool.inputSchema, enabled: true })));
@@ -84,7 +102,7 @@ export function MemorySourceConnection({ server, onReady, onEnable, onTools }: {
           onEnable();
         })}>验证真实内容并同步工具</button>}
         {connected && <button type="button" className="mcp-btn secondary" disabled={Boolean(busy)} onClick={() => void run('disconnect', async valid => {
-          await memorySources.disconnect(address); if (!valid()) return; setConnected(false); onReady(false); setMessage('已清除本机此来源连接，远端撤销未确认；可以在服务商的应用授权页移除此应用。');
+          await memorySources.disconnect(address); if (!valid()) return; setConnected(false); setWritingEnabled(false); onReady(false); setMessage('已清除本机此来源连接，远端撤销未确认；可以在服务商的应用授权页移除此应用。');
         })}>断开本机连接</button>}
       </div>
       {code && <div><p>GitHub 验证码：<strong>{code}</strong></p><button type="button" className="mcp-btn secondary" onClick={() => void (async () => {

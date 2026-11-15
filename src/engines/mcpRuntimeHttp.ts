@@ -89,7 +89,8 @@ async function requestMcpHttp(
     const incoming = new Headers(init.headers); const headers: Record<string, string> = {};
     for (const key of ['Mcp-Session-Id', 'MCP-Protocol-Version']) { const value = incoming.get(key); if (value) headers[key] = value; }
     const result = await memorySources.request({ serverId: options.server.id, url, authKind: options.server.authKind, publicClientId: options.server.publicClientId,
-      method: init.method ?? 'POST', body: typeof init.body === 'string' ? init.body : '', headers });
+      method: init.method ?? 'POST', body: typeof init.body === 'string' ? init.body : '', headers,
+      ...(options.memoryWriteAuthorized === true ? { userWriteRequested: true } : {}) });
     return new Response(result.data || null, { status: result.status, headers: { 'Content-Type': 'application/json', ...result.headers } });
   }
   if (options.server.authKind === 'sites-memory-oauth') {

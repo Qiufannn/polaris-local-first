@@ -455,7 +455,7 @@ export function buildDirectToolExecutionContext({
     },
     activeProjectId,
     ...buildDesktopToolExecutionContext({ collection, activeProjectId }),
-    ...buildMcpToolExecutionContext({ runtime }),
+    ...buildMcpToolExecutionContext({ runtime, getConversationMessages }),
     saveArchiveEntryAsCodeCard: async (target, entry, title, language, tags, openInCollection) => {
       const archiveEntry = await readConversationArchiveEntryText(getConversationMessages(), target, entry);
       if (!archiveEntry.ok) return archiveEntry;

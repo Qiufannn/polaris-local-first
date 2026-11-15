@@ -46,7 +46,7 @@ final class MemorySourceOAuth {
     static String safe(Exception error) {
         String message = error.getMessage();
         if (message != null && message.length() < 240 && !message.matches("(?s).*(gh[upr]_|access_token|refresh_token|device_code).*" )
-            && message.matches("^(GitHub 授权|登录|授权|身份|安全|返回|请选择|尚未|暂时|无法|注册).*")) return message;
+            && message.matches("^(GitHub 授权|GitHub 记忆|登录|授权|身份|安全|返回|请选择|尚未|暂时|无法|注册).*")) return message;
         return "记忆来源连接未完成（" + category(error) + "），请重试；无需修改 ChatGPT 登录。";
     }
 }

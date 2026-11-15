@@ -12,6 +12,7 @@
 - [GitHub primary memory and Notion diary connections](docs/qiufann/memory-sources.md) adds separate native device/browser sign-in and content verification. GitHub is the primary memory; Notion supplies diaries, and the home Site remains optional display. Owner authorization and real reads still need phone acceptance; memory writes are a later step.
 - [GitHub device approval recovery](docs/qiufann/github-device-recovery.md) addresses polling interruptions after browser approval and misleading unauthenticated tool-discovery status.
 - [Chat action history display](docs/qiufann/chat-activity-display.md) adds grouped/collapsed and hidden views for tool activity while retaining chat and generated products.
+- [GitHub memory writeback](docs/qiufann/github-memory-write.md) adds explicit-request create/append/correction, SHA checks, commit-pinned readback and interrupted-write reconciliation. Owner permission updates and real phone write acceptance remain separate steps.
 
 Original author attribution and AGPL-3.0-only licensing are retained. The unsigned APK is for build inspection and cannot be installed until stable signing is securely configured and verified.
 
