@@ -18,6 +18,7 @@ import { ComposerPreviewStrip } from './ComposerPreviewStrip';
 import { SlashCommandSuggestions } from './SlashCommandSuggestions';
 import { useComposerFileIngest } from './useComposerFileIngest';
 import { useI18n } from '../../../../i18n';
+import { createQiufannStickerAttachment, type QiufannSticker } from '../../../../engines/qiufannStickers';
 
 function resolveThemeReviveSpell(input: string): 'restore-default' | 'revive-last' | null {
   const normalized = input.trim().toLowerCase().replace(/\s+/g, '');
@@ -51,6 +52,9 @@ export function ChatComposer() {
   const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const activeConversationId = presentation.activeConversationId;
+  const attachmentContextKey = `${presentation.activeCollaboratorId ?? ''}|${activeConversationId ?? ''}`;
+  const attachmentContextRef = useRef(attachmentContextKey);
+  attachmentContextRef.current = attachmentContextKey;
   const [localDraft, setLocalDraft] = useState(composer.inputDraft);
   const localDraftRef = useRef(composer.inputDraft);
   const draftConversationIdRef = useRef(activeConversationId);
@@ -65,6 +69,15 @@ export function ChatComposer() {
   );
 
   actionsRef.current = actions;
+  useEffect(() => { setAttachmentPickerOpen(false); }, [attachmentContextKey]);
+  const handlePickSticker = async (sticker: QiufannSticker, signal: AbortSignal) => {
+    const contextKey = attachmentContextKey;
+    const attachment = await createQiufannStickerAttachment(sticker, signal);
+    if (signal.aborted || attachmentContextRef.current !== contextKey) throw new Error('窗口已切换，表情包没有加到新对话。');
+    attachments.add([attachment]);
+    actions.clearCommandStatus();
+    setAttachmentPickerOpen(false);
+  };
 
   const writeDraftToStore = (value: string, conversationId: string | null) => {
     if (
@@ -195,7 +208,7 @@ export function ChatComposer() {
   const handleComposerBlankDismiss = (target: EventTarget | null) => {
     if (!attachmentPickerOpen || !(target instanceof HTMLElement)) return;
     const interactiveTarget = target.closest(
-      'button, textarea, input, .chat-box-shell, .active-preview-strip, .chat-workspace-banner, .composer-card-reference-strip, .attachment-warning'
+      'button, textarea, input, .attachment-picker-sheet, .chat-box-shell, .active-preview-strip, .chat-workspace-banner, .composer-card-reference-strip, .attachment-warning'
     );
     if (interactiveTarget) return;
     setAttachmentPickerOpen(false);
@@ -255,6 +268,8 @@ export function ChatComposer() {
           onOpenToolbox={actions.openToolbox}
           onSetPickerOpen={setAttachmentPickerOpen}
           onSetPendingCardReference={actions.setPendingCardReference}
+          onPickSticker={handlePickSticker}
+          personaId={presentation.activeCollaboratorId}
         />
         {resolvedPendingCardReference ? (
           <ComposerCardReferenceStrip

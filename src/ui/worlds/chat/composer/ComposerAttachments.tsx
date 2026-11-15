@@ -9,6 +9,8 @@ import { cleanDisplayText } from '../../../text/displayText';
 import { canUseNativeCameraCapture, canUseNativePhotoLibraryPicker } from '../../../../native/imagePickerFiles';
 import { canUseNativeSystemFilePicker, pickNativeSystemFiles } from '../../../../native/systemPickedFiles';
 import { useI18n } from '../../../../i18n';
+import { StickerPicker } from './StickerPicker';
+import type { QiufannSticker } from '../../../../engines/qiufannStickers';
 
 type ComposerAttachmentsProps = {
   pickerOpen: boolean;
@@ -26,6 +28,8 @@ type ComposerAttachmentsProps = {
   onOpenToolbox: () => void;
   onSetPickerOpen: (open: boolean) => void;
   onSetPendingCardReference: (reference: ChatCardReference | null) => void;
+  onPickSticker: (sticker: QiufannSticker, signal: AbortSignal) => Promise<void>;
+  personaId: string | null;
 };
 
 type ComposerQuickActionsProps = {
@@ -42,15 +46,13 @@ export function ComposerQuickActions({
   interactionLocked,
   onSetPickerOpen
 }: ComposerQuickActionsProps) {
-  const { t } = useI18n();
-
   return (
     <div className="composer-quick-actions">
       <button
         type="button"
         className={`composer-slot-btn composer-slot-btn-attachment ${pickerOpen ? 'active' : ''}`}
-        title={t('chat.composer.attachmentsToggle')}
-        aria-label={t('chat.composer.attachmentsToggle')}
+        title="表情包与附件"
+        aria-label="表情包与附件"
         aria-expanded={pickerOpen}
         aria-controls="composer-attachment-picker"
         disabled={interactionLocked}
@@ -81,10 +83,13 @@ export function ComposerAttachments({
   onToggleTaskModeEnabled,
   onOpenToolbox,
   onSetPickerOpen,
-  onSetPendingCardReference
+  onSetPendingCardReference,
+  onPickSticker,
+  personaId
 }: ComposerAttachmentsProps) {
   const { t } = useI18n();
   const [cardPickerOpen, setCardPickerOpen] = useState(false);
+  const [tab, setTab] = useState<'stickers' | 'attachments'>('stickers');
   const imageLibraryPickerRef = useRef<HTMLInputElement>(null);
   const cameraPickerRef = useRef<HTMLInputElement>(null);
   const filePickerRef = useRef<HTMLInputElement>(null);
@@ -99,6 +104,7 @@ export function ComposerAttachments({
   useEffect(() => {
     if (pickerOpen) return;
     setCardPickerOpen(false);
+    setTab('stickers');
   }, [pickerOpen]);
 
   const handleAttachmentSelection = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -167,7 +173,13 @@ export function ComposerAttachments({
         onChange={(event) => { void handleAttachmentSelection(event); }}
       />
       {pickerOpen ? (
-        <div className="attachment-picker-sheet" id="composer-attachment-picker" role="region" aria-label={t('chat.composer.attachmentPickerAria')}>
+        <div className="attachment-picker-sheet" id="composer-attachment-picker" role="region" aria-label="表情包与附件面板">
+          <div className="sticker-picker-tabs" role="tablist" aria-label="选择发送内容">
+            <button type="button" role="tab" aria-selected={tab === 'stickers'} onClick={() => setTab('stickers')}>表情包</button>
+            <button type="button" role="tab" aria-selected={tab === 'attachments'} onClick={() => setTab('attachments')}>附件</button>
+            <button type="button" aria-label="关闭表情包与附件面板" onClick={closePicker}><Icon name="x" size={16} /></button>
+          </div>
+          {tab === 'stickers' ? <StickerPicker key={personaId} disabled={interactionLocked} personaId={personaId} onPick={onPickSticker} /> : <>
           <div className="attachment-picker-actions">
             <button
               type="button"
@@ -339,6 +351,7 @@ export function ComposerAttachments({
               </div>
             </div>
           ) : null}
+          </>}
         </div>
       ) : null}
     </>
