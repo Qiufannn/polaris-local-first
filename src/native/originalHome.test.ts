@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ native: true, available: true, request: vi.fn(), open: vi.fn(), generic: vi.fn() }));
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => mocks.native, getPlatform: () => mocks.native ? 'android' : 'web', isPluginAvailable: () => mocks.available }, CapacitorHttp: { request: mocks.generic }, registerPlugin: () => ({ request: mocks.request, open: mocks.open }) }));
-import { originalHome, originalHomeOrigin } from './originalHome';
+import { originalHome, originalHomeEndpoint, originalHomeOrigin } from './originalHome';
 import { clearMcpToolCatalogCacheForTests, invokeMcpTool, resolveMcpToolCatalog } from '../engines/mcpRuntime';
 import { normalizeMcpServer, parseMcpServersJson, serializeMcpServersToJson } from '../stores/runtimeStoreMcp';
 import type { McpServerConfig } from '../types/domain';
@@ -11,6 +11,9 @@ describe('original website session bridge', () => {
   it('accepts only the original Site homepage or its MCP endpoint', () => {
     expect(originalHomeOrigin('https://unit.chatgpt.site/')).toBe('https://unit.chatgpt.site');
     expect(originalHomeOrigin(server.url)).toBe('https://unit.chatgpt.site');
+    expect(originalHomeEndpoint('https://unit.chatgpt.site/')).toBe(server.url);
+    expect(originalHomeEndpoint('https://unit.chatgpt.site/mcp')).toBe(server.url);
+    expect(originalHomeEndpoint('https://unit.chatgpt.site/?token=unit')).toBe('');
     for (const url of ['http://unit.chatgpt.site', 'https://unit.chatgpt.site.evil.invalid', 'https://u:p@unit.chatgpt.site', 'https://unit.chatgpt.site/?token=unit', 'https://unit.chatgpt.site/other']) expect(originalHomeOrigin(url)).toBe('');
   });
   it('uses the protected native path for discovery and actual life-record invocation without model-visible cookies', async () => {

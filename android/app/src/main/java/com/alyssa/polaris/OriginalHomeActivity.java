@@ -52,7 +52,7 @@ public class OriginalHomeActivity extends Activity {
                 ((WebView.WebViewTransport) result.obj).setWebView(popup); result.sendToTarget(); return true;
             }
         });
-        browser.loadUrl(origin + "/");
+        browser.loadUrl(OriginalHomePolicy.initialUrl(origin, getIntent().getBooleanExtra("signIn", false)));
     }
     private boolean navigate(Uri uri) {
         if (OriginalHomePolicy.CHAT_LINK.equals(uri.toString()) && OriginalHomePolicy.trustedPage(browser.getUrl(), origin)) { setResult(RESULT_OK, new Intent().putExtra("action", "chat")); finish(); return true; }

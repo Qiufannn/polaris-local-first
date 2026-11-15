@@ -17,8 +17,10 @@ final class OriginalHomePolicy {
         return "https://" + host.toLowerCase(Locale.ROOT);
     }
     static String endpoint(String value) throws Exception {
-        String origin = origin(value); if (!(origin + "/mcp").equals(value)) throw new Exception("小屋工具只能使用已配置原网页的 /mcp 地址。"); return value;
+        return origin(value) + "/mcp";
     }
+    static String initialUrl(String origin, boolean signIn) { return origin + (signIn ? "/signin-with-chatgpt" : "/"); }
+    static boolean browserPage(String value, String origin) { return (origin + "/api/home/bridge").equals(value) && trustedPage(value, origin); }
     static boolean trustedPage(String value, String origin) {
         try { URI uri = new URI(value); return "https".equals(uri.getScheme()) && uri.getPort() == -1 && uri.getRawUserInfo() == null && origin.equals("https://" + uri.getHost()); } catch (Exception ignored) { return false; }
     }

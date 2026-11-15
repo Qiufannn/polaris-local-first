@@ -11,9 +11,10 @@ describe('original home account verification', () => {
     expect(await connectOriginalHome(() => store, 'https://unit.chatgpt.site/', () => true)).toBe('home'); expect(mocks.invoke.mock.calls[0][0].argumentsObject).toEqual({ limit: 1 }); expect(store.mcpServers).toEqual([memory]); expect(store.createMcpServer.mock.calls[0][0]).toMatchObject({ authKind: 'original-home-session', headers: [], isActive: true });
   });
   it('retains prior disabled tool choices and reuses the source rather than adding duplicates', async () => {
-    const existing = normalizeMcpServer({ id: 'home', url: 'https://unit.chatgpt.site/mcp', authKind: 'original-home-session', tools: [{ name: 'mood_save', description: '', inputSchema: {}, enabled: false }] });
+    const existing = normalizeMcpServer({ id: 'home', url: 'https://unit.chatgpt.site/', authKind: 'original-home-session', tools: [{ name: 'mood_save', description: '', inputSchema: {}, enabled: false }] });
     const store = { mcpServers: [existing], createMcpServer: vi.fn(), updateMcpServer: vi.fn() };
     expect(await connectOriginalHome(() => store, 'https://unit.chatgpt.site/', () => true)).toBe('home'); expect(store.createMcpServer).not.toHaveBeenCalled(); expect(store.updateMcpServer.mock.calls[0][1].tools[1].enabled).toBe(false);
+    expect(store.updateMcpServer.mock.calls[0][1].url).toBe('https://unit.chatgpt.site/mcp');
   });
   it('does not claim connected or enable writes for a visible catalog with a failed owner read', async () => {
     const store = { mcpServers: [], createMcpServer: vi.fn(), updateMcpServer: vi.fn() };

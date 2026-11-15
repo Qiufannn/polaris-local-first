@@ -8,7 +8,7 @@ import { McpSiteConnection } from './McpSiteConnection';
 import { MemorySourceConnection } from './MemorySourceConnection';
 import { GardenConnection } from './GardenConnection';
 import { isPublicGithubClientId } from '../../../engines/mcpAuth';
-import { originalHome, originalHomeOrigin } from '../../../native/originalHome';
+import { originalHome, originalHomeEndpoint, originalHomeOrigin } from '../../../native/originalHome';
 
 type McpServerEditorSheetProps = {
   open: boolean;
@@ -61,6 +61,7 @@ export function McpServerEditorSheet({
   const { t } = useI18n();
   const [authKind, setAuthKind] = useState<McpServerConfig['authKind']>();
   const [oauthReady, setOauthReady] = useState(false);
+  const [homeLoginBusy, setHomeLoginBusy] = useState(false);
   const [publicClientId, setPublicClientId] = useState('');
   const [memoryRootUrl, setMemoryRootUrl] = useState('');
   const [name, setName] = useState('');
@@ -101,7 +102,7 @@ export function McpServerEditorSheet({
 
   const testConnection = async () => {
     const trimmedName = name.trim() || t('settings.mcp.testNameFallback');
-    const trimmedUrl = url.trim();
+    const trimmedUrl = authKind === 'original-home-session' ? originalHomeEndpoint(url) : url.trim();
     if (!trimmedUrl) {
       setTestState({ status: 'error', message: t('settings.mcp.testMissingUrl') });
       return;
@@ -169,7 +170,7 @@ export function McpServerEditorSheet({
 
   const submit = () => {
     const trimmedName = name.trim();
-    const trimmedUrl = url.trim();
+    const trimmedUrl = authKind === 'original-home-session' ? originalHomeEndpoint(url) : url.trim();
     if (!trimmedName) {
       window.alert(t('settings.mcp.nameRequired'));
       return;
@@ -309,7 +310,14 @@ export function McpServerEditorSheet({
           />}
           {authKind === 'garden-oauth' && <GardenConnection server={server?.authKind === authKind && server.url.trim() === url.trim() ? server : null}
             onReady={setOauthReady} onEnable={() => setIsActive(true)} onTools={setTools} />}
-          {authKind === 'original-home-session' && <section className="mcp-test-panel"><strong>原网页与 AI 共用小屋记录</strong><p>先在原小屋网页里登录，再测试连接。连接只用于同一网页的生活记录和只读记忆，不会自动上传聊天原文或更改 GitHub 主记忆。</p><button type="button" className="mcp-btn secondary" onClick={() => { const origin = originalHomeOrigin(url); if (!origin) { setTestState({ status: 'error', message: '请填写原小屋 HTTPS /mcp 地址。' }); return; } void originalHome.open({ url: origin }).catch(() => setTestState({ status: 'error', message: '原小屋尚未打开，请使用 Android 更新版。' })); }}>打开原小屋并登录</button></section>}
+          {authKind === 'original-home-session' && <section className="mcp-test-panel"><strong>原网页与 AI 共用小屋记录</strong><p>登录会打开站点的 ChatGPT 登录入口，返回后自动验证记录读取。也可以填写首页地址，App 会自动补齐连接地址。连接只用于同一小屋的生活记录和只读记忆。</p><button type="button" className="mcp-btn secondary" disabled={homeLoginBusy} onClick={async () => {
+            const origin = originalHomeOrigin(url);
+            if (!origin) { setTestState({ status: 'error', message: '请填写原小屋 HTTPS 首页或 /mcp 地址。' }); return; }
+            setHomeLoginBusy(true);
+            try { await originalHome.open({ url: origin, signIn: true }); await testConnection(); }
+            catch (error) { setTestState({ status: 'error', message: error instanceof Error ? error.message : '原小屋登录未完成。' }); }
+            finally { setHomeLoginBusy(false); }
+          }}>{homeLoginBusy ? '等待登录并验证…' : '登录原小屋'}</button></section>}
 
           <div className={`mcp-test-panel ${testState.status !== 'idle' ? `mcp-test-panel--${testState.status}` : ''}`}>
             <button

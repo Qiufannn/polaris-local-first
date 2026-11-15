@@ -9,7 +9,14 @@ public class OriginalHomePolicyTest {
         assertEquals("https://unit.example.chatgpt.site", OriginalHomePolicy.origin("https://unit.example.chatgpt.site/"));
         assertEquals("https://unit.example.chatgpt.site/mcp", OriginalHomePolicy.endpoint("https://unit.example.chatgpt.site/mcp"));
         for (String url : new String[]{"http://unit.chatgpt.site", "https://chatgpt.site.evil.invalid/", "https://user:password@unit.chatgpt.site", "https://unit.chatgpt.site/?token=unit", "https://unit.chatgpt.site/other", "https://127.0.0.1/"}) assertThrows(Exception.class, () -> OriginalHomePolicy.origin(url));
-        assertThrows(Exception.class, () -> OriginalHomePolicy.endpoint("https://unit.chatgpt.site/"));
+        assertEquals("https://unit.chatgpt.site/mcp", OriginalHomePolicy.endpoint("https://unit.chatgpt.site/"));
+    }
+    @Test public void loginUsesTheHostedSignInEntryAndBackgroundRequestsStayOnTheExactBrowserBridge() {
+        String origin = "https://unit.chatgpt.site";
+        assertEquals(origin + "/signin-with-chatgpt", OriginalHomePolicy.initialUrl(origin, true));
+        assertEquals(origin + "/", OriginalHomePolicy.initialUrl(origin, false));
+        assertTrue(OriginalHomePolicy.browserPage(origin + "/api/home/bridge", origin));
+        for (String url : new String[]{origin + "/", origin + "/api/home/bridge?redirect=elsewhere", "https://evil.invalid/api/home/bridge", origin + ".evil.invalid/api/home/bridge"}) assertFalse(OriginalHomePolicy.browserPage(url, origin));
     }
     @Test public void chatHandoffDoesNotReplaceTheOriginalHtmlStylesOrThreePages() {
         String script = OriginalHomePolicy.chatHook();
