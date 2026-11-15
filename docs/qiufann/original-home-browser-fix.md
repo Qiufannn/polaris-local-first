@@ -39,3 +39,13 @@
 ## 后台交付
 
 原站后台已通过 Sites 的 owner-private 发布流程更新至第 38 版，部署成功；发布前后私密访问策略逐字段相同，原 MCP 仍就绪，正式已授权连接的真实只读请求仍成功。29 个前端页面/素材保持原字节；无数据库迁移，无生产测试写入。此回执不等于 Android 的新浏览器接口已通过手机验收。
+
+## 最终安装包：24 版
+
+- 代码 `c7229904894bb3a84799f91ce77129f327901b92`；[CI #24](https://github.com/Qiufannn/polaris-local-first/actions/runs/43754090787) 四作业成功。Web 504 文件 / 3218 测试，主、额外和 Worker 类型检查及生产构建通过。unsigned artifact 的 XML 独立核对原生 93 项，0 failures / errors / skipped。
+- [个人签名更新包 polaris-android-signed-24-1](https://github.com/Qiufannn/polaris-local-first/actions/runs/43754090787/artifacts/14177727621)。ZIP SHA256 `dc4627a85d903898d5c8cda617508d79e740c2011574c1ca5e64cf4034eaf8b6` 与服务端 digest 一致；APK SHA256 `538a70332a91547d0b6360127d084ede424923e8e6fe9ffbd6e6c2c24ea3aad0`，16359595 字节。
+- 实际核验包名 `com.alyssa.polaris`、versionCode 24、v3 签名和个人证书 SHA256 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，可覆盖个人签名旧版。与同次 unsigned APK 的 1232 个原条目逐字节一致，仅新增三项签名元数据；101 张表情图库与 22 版原字节一致。
+- 入包检查确认独立浏览器请求类、托管登录入口、精确桥接路径和登录后验证 UI；请求脚本与最终源码原字节一致，并检查原生确认的绝对来源和实际页面来源/路径。不含原私密小屋地址或私人素材。
+- 23 版是本轮中间构建；24 版补充绝对来源绑定及网页 base 地址不影响请求的检查，为最终交付。原站后台仍为已成功发布的第 38 版，无需再次发布前端。
+- 覆盖安装，不卸载；原连接和原数据保留。只推送 Polaris 定制分支，未合并其 main、未发布 GitHub Release。未索取密码、API Key、token 或签名密钥。
+- 正式 Site 连接的读取与独立合成测试已通过；Android 新浏览器接口的真实登录/读取、以及一条测试记录的双向写回仍待本人手机验收，不能把此构建回执说成手机已连通。
