@@ -20,3 +20,12 @@
 ## 验收状态
 
 合成原生测试覆盖范围、双层创建、同日追加、旧文保留、重复日期、重启去重、结果丢失、待核验阻止改写重试、回读异常、磁盘错误及版本兼容。Web 测试覆盖真实用户意图、否定/引用/后台拒绝、调用标志隔离和未验证结果显错。真实手机 Notion 写回尚待本人安装后测试；不能用连接器在此窗口创建目录来冒充 Polaris 已写入成功。
+
+### 16 版构建交付
+
+- 源码 `404218b95ab4fb6aaf5b1a602955c830288b448f`；[CI #16](https://github.com/Qiufannn/polaris-local-first/actions/runs/43692709144) 四个作业全部成功。Web 495 个文件 / 3153 项测试，原生 XML 独立核对 82 项，0 failures / errors / skipped。TypeScript、额外工具/API、Worker 和生产构建通过。
+- 390px 合成 UI 核对目录/模板输入、原生开关、工具同步、开启后固定目录及关闭后移除写工具；不以合成授权代表本人已写入私人日记。
+- [个人签名包](https://github.com/Qiufannn/polaris-local-first/actions/runs/43692709144/artifacts/14153151125)，名称 `polaris-android-signed-16-1`。ZIP SHA256 `34abd055544182ee0387ccece63b540a2db744e76a3a8ad8ad64091adad89350` 与服务端 digest 一致；APK SHA256 `2d29d3abe0625f775082cda9d25ab1090b2540b56f83f2a02fbd8962f61849d5`。
+- 包名 `com.alyssa.polaris`，versionCode 16。证书 SHA256 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5` 与既有个人包相同。ZIP、源码/构建回执、包信息、签名通过独立核验；与 CI unsigned APK 的全部原条目字节相同，仅新增三项签名元数据。APK 内也核验了新设置文字、日记调用名称、原生 writer 与配置方法，避免仅检查外部回执。
+- 原私密档案已由本人明确要求更新三平台记录规则：Notion 增设独立 Polaris 目录并补充原模板和总入口；GitHub 增加三平台规则文件及入口说明，均已实际回读。这是规则与目录维护，没有在开发中新增当天日记；私密页面地址与档案内容不进入本公共仓库。
+- 正式交付的手机步骤：覆盖安装签名包 → 原 Notion 卡填写本人私密目录/模板并开启写回 → 保存后真实新建/同日追加并回读。手机验收尚未完成。
