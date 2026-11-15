@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPersonaTemplate } from '../config/persona/personaBuilder';
+import { importPersonaSkill } from '../engines/personaSkills';
 import {
   buildPersonaLocalDataUnitOfWork,
   createLocalDataKvBackend,
@@ -315,6 +316,16 @@ describe('persona LocalData persistence', () => {
       value: expect.objectContaining({ id: 'persona-1', active: true })
     }));
     expect((await readDomainMeta()).totalObjectCount).toBe(1);
+  });
+
+  it('round-trips private local skill sources, companion documents and home links through the active repository', async () => {
+    const original = '---\nname: private-unit\n---\n# Workflow\nRead 《Unit source》.';
+    const skill = { ...importPersonaSkill(original), enabled: true, resources: [{ title: 'Unit source', content: 'Private unit document.' }] };
+    const unit = createPersonaTemplate({ ...persona('unit-skills'), advanced: { skills: [skill], homeUrl: 'https://unit.invalid/home' } });
+    await writePersonaState({ personas: [unit], activeCollaboratorId: unit.id, seededDefaultPersonaIds: [] });
+    const payload = await readPersonaStateFromLocalDataRepositoryIfActive();
+    expect(payload?.personas[0].advanced.skills).toEqual([skill]); expect(payload?.personas[0].advanced.homeUrl).toBe('https://unit.invalid/home');
+    expect(createPersonaTemplate(payload!.personas[0]).advanced.skills?.[0].source).toBe(original);
   });
 
   it('self-activates an empty fresh persona directory so the active source is explicit', async () => {

@@ -9,6 +9,7 @@ export function useResetUiStateOnConversationChange(
     clearCommandStatus,
     setDragActive,
     setEditing,
+    setPendingQuote,
     setCollapsedThinkingMessageIds,
     setSeenThinkingMessageIds,
     setThinkingSummaryMessageId,
@@ -19,6 +20,7 @@ export function useResetUiStateOnConversationChange(
     clearCommandStatus();
     setDragActive(false);
     setEditing(null);
+    setPendingQuote(null);
     setCollapsedThinkingMessageIds([]);
     setSeenThinkingMessageIds([]);
     setThinkingSummaryMessageId(null);
@@ -29,6 +31,7 @@ export function useResetUiStateOnConversationChange(
     setCollapsedThinkingMessageIds,
     setDragActive,
     setEditing,
+    setPendingQuote,
     setExpandedCodeMessageIds,
     setSeenThinkingMessageIds,
     setThinkingSummaryMessageId

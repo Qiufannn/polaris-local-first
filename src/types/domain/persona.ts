@@ -190,6 +190,16 @@ export interface PersonaMemoryReferenceDoc {
   updatedAt: number;
 }
 
+export interface PersonaSkill {
+  id: string;
+  name: string;
+  description: string;
+  source: string;
+  enabled: boolean;
+  activation: 'always' | 'manual';
+  resources: { title: string; content: string }[];
+}
+
 export interface PersonaAdvancedSettings {
   providerId?: string;
   modelOverride: string;
@@ -204,6 +214,8 @@ export interface PersonaAdvancedSettings {
   customBody: string;
   regexRules: string;
   regexTriggers?: string;
+  skills?: PersonaSkill[];
+  homeUrl?: string;
   snippets: string[];
 }
 

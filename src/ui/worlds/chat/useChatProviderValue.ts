@@ -36,6 +36,7 @@ import { useChatStore } from '../../../stores/chatStore';
 import { createChatSlashCommandHandler } from '../../../app/chat/chatSlashCommands';
 import { setTaskModeEnabledForConversations } from '../../../app/chat/taskModeToggle';
 import { useI18n, type I18nTranslator } from '../../../i18n';
+import { createMessageQuote } from '../../../engines/chatMessageQuote';
 
 type UseChatProviderValueArgs = {
   ui: ChatUiState;
@@ -85,6 +86,7 @@ function buildComposerSection(args: {
     : null;
 
   return {
+    pendingQuote: args.ui.pendingQuote?.conversationId === activeConversation?.id ? args.ui.pendingQuote : null,
     inputDraft: args.store.chat.inputDraft,
     dragActive: args.ui.dragActive,
     pendingCardReference: args.store.space.pendingCardReference,
@@ -154,6 +156,20 @@ function buildActionsSection(args: {
 }): ChatContextActionsValue {
   return {
     submit: args.chatActions.handleSubmit,
+    clearQuote: () => args.ui.setPendingQuote(null),
+    quoteMessage: (message, selection) => {
+      const conversation = args.store.chat.findConversation(args.store.chat.activeConversationId ?? '');
+      if (!conversation || !conversation.messages.some(item => item.id === message.id)) return;
+      const persona = args.store.persona.personas.find(item => item.id === conversation.collaboratorId);
+      const author = message.role === 'assistant' ? message.assistantName || persona?.name || '协作者' : persona?.userName || '我';
+      const quote = createMessageQuote(conversation.id, message, author, selection);
+      if (quote) { args.ui.setPendingQuote(quote); requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('.chat-box textarea')?.focus()); }
+    },
+    openQuotedMessage: (quote) => {
+      const conversation = args.store.chat.findConversation(args.store.chat.activeConversationId ?? '');
+      if (!conversation || conversation.id !== quote.conversationId || !conversation.messages.some(item => item.id === quote.messageId)) { args.ui.setCommandStatus('原消息已不在当前对话，仍保留引用时的文字。'); return; }
+      args.store.space.setFocusedMessageTarget({ conversationId: conversation.id, messageId: quote.messageId });
+    },
     stopGeneration: () => {
       const activeConversationId = args.store.chat.activeConversationId;
       if (!activeConversationId) return;
@@ -410,6 +426,8 @@ export function useChatProviderValue({
     ui: {
       sending: derived.sending,
       editing: ui.editing,
+      pendingQuote: ui.pendingQuote,
+      clearPendingQuote: () => ui.setPendingQuote(null),
       confirm: (message) => window.confirm(message),
       setCommandStatus: ui.setCommandStatus,
       triggerSubmitFlight: ui.triggerSubmitFlight,

@@ -4,6 +4,8 @@ import type { AssistantPromptPart, PersonaRuntimePromptSource } from './requestA
 import type { TemplateContext } from '../templateEngine';
 import type { ChatMessage, ConversationTaskState } from '../../types/domain';
 import { buildRegexTriggerContext } from '../regexTriggerProcessor';
+import { buildPersonaSkillContext } from '../personaSkills';
+import type { PersonaSkill } from '../../types/domain';
 import { buildCapabilityEntries } from './requestPromptCapabilities';
 import { buildIdentityEntries } from './requestPromptIdentity';
 import { buildModelRuntimeEntry, buildRuntimeClockEntry, buildWorkRuntimeEntry } from './requestPromptRuntime';
@@ -16,6 +18,7 @@ export function buildAssistantPromptLayers(params: {
   templateContext: TemplateContext;
   messages: ChatMessage[];
   regexTriggers?: string;
+  skills?: PersonaSkill[];
   currentTask?: ConversationTaskState | null;
   includeRuntimeClockContext?: boolean;
   promptInjections?: ProviderCapabilityPromptInjection[];
@@ -33,6 +36,7 @@ export function buildAssistantPromptParts(params: {
   templateContext: TemplateContext;
   messages: ChatMessage[];
   regexTriggers?: string;
+  skills?: PersonaSkill[];
   currentTask?: ConversationTaskState | null;
   includeRuntimeClockContext?: boolean;
   promptInjections?: ProviderCapabilityPromptInjection[];
@@ -68,6 +72,7 @@ export function buildAssistantPromptParts(params: {
     ...(runtimeClockEntry ? [runtimeClockEntry] : []),
     ...(modelRuntimeEntry ? [modelRuntimeEntry] : []),
     regexTriggerEntry,
+    { name: 'local_skill_context', label: '本地技能', role: 'system', layer: 'context', truncationPriority: 53, content: buildPersonaSkillContext(params.skills, messages), enabled: false, charCount: 0 } as const,
     ...(workRuntimeEntry ? [workRuntimeEntry] : [])
   ].map((part) => ({
     ...part,

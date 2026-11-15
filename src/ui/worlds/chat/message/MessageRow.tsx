@@ -14,6 +14,9 @@ import { resolveCodeCardActionCopy, resolveMessageRowRoleClass } from '../messag
 import { useI18n } from '../../../../i18n';
 import { buildMessageCycleAttrs, buildUserBubbleCycleAttrs } from '../userBubbleCycles';
 import { MessageActions, type MessageTaskReceiptAction } from './MessageActions';
+import { MessageQuote, MessageQuoteAction } from './MessageQuote';
+import type { ChatMessageQuote } from '../../../../types/domain';
+import { normalizeMessageQuote } from '../../../../engines/chatMessageQuote';
 import { MessageCardReference } from './MessageCardReference';
 import { MessageContent } from './MessageContent';
 import { MessageEditInline } from './MessageEditInline';
@@ -49,6 +52,8 @@ export type MessageRowState = {
 };
 
 export type MessageRowActions = {
+  quoteMessage?: (message: ChatMessage, selection?: string) => void;
+  openQuotedMessage?: (quote: ChatMessageQuote) => void;
   removeEditingAttachment: (attachmentId: string) => void;
   updateEditingDraft: (value: string) => void;
   commitEdit: (message: ChatMessage) => Promise<void>;
@@ -326,6 +331,8 @@ function MessageRowComponent({
   };
 
   const plainAttachments = (message.attachments ?? []).filter(attachment => !isStickerAttachment(attachment));
+  const quote = normalizeMessageQuote(message.quote);
+  const quoteAction = actions.quoteMessage && !isToolEvent && !isPlainSystemMessage && !isStreamingLike && !state.editing && message.content.trim() ? <MessageQuoteAction content={message.content} onQuote={selection => actions.quoteMessage?.(message, selection)} /> : null;
   const stickerAttachments = (message.attachments ?? []).filter(isStickerAttachment);
   const contentPieces = isAssistantReply && !state.editing && !isStreamingLike ? splitAssistantChatProse(message.content) : [message.content];
   const hasBubbleContent = Boolean(state.editing || showStreamingPrelude || isStreamingLike || message.content.replace(TOOL_DRAFT_BLOCK_PATTERN, '').trim() || plainAttachments.length || resolvedCardReference || (showThinking && message.thinkingText?.trim()));
@@ -340,6 +347,7 @@ function MessageRowComponent({
       onPointerLeave={clearLongPressTimer}
       onPointerMove={clearLongPressTimer}
     >
+      {!state.editing && quote && <MessageQuote quote={quote} onOpen={() => actions.openQuotedMessage?.(quote)} />}
       {hasBubbleContent && contentPieces.map((content, pieceIndex) => <div
         key={pieceIndex}
         className={`bubble ${message.role === 'assistant' ? 'assistant' : 'user'} ${state.editing ? 'editing' : ''}`}
@@ -504,6 +512,7 @@ function MessageRowComponent({
                 </div>
               ) : null}
               {messageActions}
+              {quoteAction}
             </div>
           </div>
         </div>
@@ -513,6 +522,7 @@ function MessageRowComponent({
             <div className="message-turn-stack user">
               {messageBubble}
               {messageActions}
+              {quoteAction}
             </div>
             {showChatAvatars ? (
               <div className="message-avatar-slot user">

@@ -20,6 +20,8 @@ import {
   type LocalDataCommitMeta
 } from '../engines/localData';
 import { createPersonaTemplate } from '../config/persona/personaBuilder';
+import { importPersonaSkill } from '../engines/personaSkills';
+import { createMessageQuote } from '../engines/chatMessageQuote';
 import {
   ASSET_BINARY_STORE,
   ASSET_META_STORE,
@@ -85,6 +87,19 @@ function createMemoryPersistenceBackend(initialKv: Array<[string, unknown]> = []
 describe('storeExportPackage', () => {
   afterEach(() => {
     setPersistenceBackendForTesting(null);
+  });
+
+  it('includes local skills, resource bodies, home links and structured quotes in the actual complete ZIP', async () => {
+    setPersistenceBackendForTesting(createMemoryPersistenceBackend());
+    const source = '# Private unit workflow\nRead 《Unit source》.';
+    const skill = { ...importPersonaSkill(source), resources: [{ title: 'Unit source', content: 'Private source body.' }] };
+    const unit = createPersonaTemplate({ id: 'unit', name: 'Unit', description: '', advanced: { skills: [skill], homeUrl: 'https://unit.invalid/home' } });
+    const quote = createMessageQuote('c', { id: 'source', role: 'assistant', content: 'Original quoted words.', timestamp: 1 }, 'Unit')!;
+    const exported = await buildStructuredExportPackage({ spaceState: {}, chatState: { conversations: [{ id: 'c', title: 'Unit', collaboratorId: 'unit', messages: [{ id: 'reply', role: 'user', content: 'Reply', timestamp: 2, quote }], pinnedAt: null, updatedAt: 2 }], activeConversationId: 'c' }, personaState: { personas: [unit], activeCollaboratorId: unit.id }, personaMemoryDocContent: { version: 1, docs: {} }, collectionState: { cards: [], projectFiles: [], workspaceReferenceDocs: [], roomProjects: [], imageCards: [], deletedBundledCardIds: [] }, runtimeState: normalizeRuntimePayload(null), assetEntries: [] });
+    const zip = await JSZip.loadAsync(await exported.blob.arrayBuffer());
+    const personas = JSON.parse(await zip.file('stores/persona.json')!.async('string'));
+    const chats = JSON.parse(await zip.file('stores/chat.json')!.async('string'));
+    expect(createPersonaTemplate(personas.personas[0]).advanced.skills).toEqual([skill]); expect(personas.personas[0].advanced.homeUrl).toBe('https://unit.invalid/home'); expect(chats.conversations[0].messages[0].quote).toEqual(quote);
   });
 
   it('exports active LocalData persona and runtime rows instead of stale legacy KV', async () => {

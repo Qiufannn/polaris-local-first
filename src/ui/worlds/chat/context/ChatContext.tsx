@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { CodeCardActionMode, CodeCardMessageProgress } from '../../../../app/chat/chatDerivedState';
 import type { WorkspaceBannerState } from '../../../../engines/workspaceBannerState';
-import type { ChatAttachment, ChatCardReference, ChatMessage, ChatMessageVoiceCache, CodeCard, Conversation, Persona, ThemeToolMode } from '../../../../types/domain';
+import type { ChatAttachment, ChatCardReference, ChatMessage, ChatMessageQuote, ChatMessageVoiceCache, CodeCard, Conversation, Persona, ThemeToolMode } from '../../../../types/domain';
 import type { PolarisToolPromptGroup } from '../../../../engines/tool-protocol/assistantToolProtocolTypes';
 import type { ChatCommandStatus, ChatEditingState, ChatStreamingState, ChatSubmitFlightState } from './ChatUiState';
 import type { ChatConversationBodyStatus } from '../../../../stores/chatConversationBodyStatus';
@@ -27,6 +27,7 @@ export type ChatContextPresentationValue = {
 };
 
 export type ChatContextComposerValue = {
+  pendingQuote?: ChatMessageQuote | null;
   inputDraft: string;
   dragActive: boolean;
   pendingCardReference: ChatCardReference | null;
@@ -65,6 +66,9 @@ export type ChatContextAttachmentsValue = {
 };
 
 export type ChatContextActionsValue = {
+  quoteMessage?: (message: ChatMessage, selection?: string) => void;
+  clearQuote?: () => void;
+  openQuotedMessage?: (quote: ChatMessageQuote) => void;
   submit: () => Promise<void>;
   stopGeneration: () => void;
   retry: (message: ChatMessage) => Promise<void>;

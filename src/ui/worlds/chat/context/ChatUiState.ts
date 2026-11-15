@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatStreamingPhase, ChatStreamingState } from '../../../../app/chat/chatStreamingDisplay';
-import type { ChatAttachment, ChatMessage, ThemeToolMode } from '../../../../types/domain';
+import type { ChatAttachment, ChatMessage, ChatMessageQuote, ThemeToolMode } from '../../../../types/domain';
 
 export type { ChatStreamingPhase, ChatStreamingState };
 
@@ -44,6 +44,7 @@ function nextGenerationMap(
 }
 
 export function useChatUiState() {
+  const [pendingQuote, setPendingQuote] = useState<ChatMessageQuote | null>(null);
   const [commandStatus, setCommandStatusState] = useState<ChatCommandStatus>(null);
   const [conversationSearch, setConversationSearch] = useState('');
   const [dragActive, setDragActive] = useState(false);
@@ -194,6 +195,8 @@ export function useChatUiState() {
   const sending = Object.values(generationByConversationId).some((generation) => generation?.sending);
 
   return {
+    pendingQuote,
+    setPendingQuote,
     commandStatus,
     setCommandStatus,
     clearCommandStatus,

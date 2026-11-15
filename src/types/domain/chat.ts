@@ -17,6 +17,14 @@ export type ChatMessageVoiceCache = {
   format: VoiceGenerationFormat;
 };
 
+export interface ChatMessageQuote {
+  conversationId: string;
+  messageId: string;
+  role: 'user' | 'assistant';
+  author: string;
+  text: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -39,6 +47,7 @@ export interface ChatMessage {
   nativeToolCalls?: ChatNativeToolCall[];
   toolInvocation?: ToolInvocation;
   cardReference?: ChatCardReference;
+  quote?: ChatMessageQuote;
 }
 
 export type ChatTokenUsage = {

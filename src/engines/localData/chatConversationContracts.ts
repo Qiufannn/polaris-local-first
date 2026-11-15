@@ -136,6 +136,7 @@ export function collectChatMessageAssetRefs(message: ChatMessage) {
 
   if (message.toolInvocation) collectAssetRefsFromStructuredValue(message.toolInvocation, assetIds);
   if (message.cardReference) collectAssetRefsFromStructuredValue(message.cardReference, assetIds);
+  if (message.quote) collectAssetRefsFromStructuredValue(message.quote, assetIds);
 
   return Array.from(assetIds).sort();
 }

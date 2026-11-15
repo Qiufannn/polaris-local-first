@@ -19,6 +19,7 @@ import { SlashCommandSuggestions } from './SlashCommandSuggestions';
 import { useComposerFileIngest } from './useComposerFileIngest';
 import { useI18n } from '../../../../i18n';
 import { createQiufannStickerAttachment, type QiufannSticker } from '../../../../engines/qiufannStickers';
+import { MessageQuote } from '../message/MessageQuote';
 
 function resolveThemeReviveSpell(input: string): 'restore-default' | 'revive-last' | null {
   const normalized = input.trim().toLowerCase().replace(/\s+/g, '');
@@ -152,15 +153,16 @@ export function ChatComposer() {
   const hasUnsupportedPendingImages = presentation.hasUnsupportedPendingImages;
   const visibleStatus = ui.commandStatus;
   const slashCommandQuery = useMemo(() => {
-    if (ui.sending) return null;
+    if (ui.sending || composer.pendingQuote) return null;
     const trimmedStart = localDraft.trimStart();
     if (!trimmedStart.startsWith('/') || trimmedStart.startsWith('//') || trimmedStart.includes('\n')) return null;
     return trimmedStart.slice(1).split(/\s+/)[0].toLowerCase();
-  }, [localDraft, ui.sending]);
-  const hasSlashCommandDraft = slashCommandQuery !== null && attachments.pending.length === 0 && !resolvedPendingCardReference;
+  }, [localDraft, ui.sending, composer.pendingQuote]);
+  const hasSlashCommandDraft = slashCommandQuery !== null && attachments.pending.length === 0 && !resolvedPendingCardReference && !composer.pendingQuote;
   const tryCastThemeReviveSpell = () => {
     if (attachments.pending.length > 0) return false;
     if (composer.pendingCardReference) return false;
+    if (composer.pendingQuote) return false;
     const spell = resolveThemeReviveSpell(localDraft);
     if (!spell) return false;
     if (spell === 'revive-last') {
@@ -282,6 +284,7 @@ export function ChatComposer() {
             {visibleStatus.text}
           </p>
         ) : null}
+        {composer.pendingQuote && <MessageQuote quote={composer.pendingQuote} onOpen={() => actions.openQuotedMessage?.(composer.pendingQuote!)} onRemove={actions.clearQuote} />}
         <SlashCommandSuggestions
           query={slashCommandQuery}
           onPick={handlePickSlashCommand}

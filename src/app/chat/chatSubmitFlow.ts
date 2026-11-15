@@ -8,8 +8,11 @@ import {
   recordChatSendPerformanceMark
 } from './chatSendPerformanceTrace';
 import { resolveChatReplyPersistenceStatus } from './chatReplyPersistence';
+import type { ChatMessageQuote } from '../../types/domain';
+import { normalizeMessageQuote } from '../../engines/chatMessageQuote';
 
 type SubmitMessageState = {
+  pendingQuote?: ChatMessageQuote | null;
   inputDraft: string;
   pendingAttachments: ChatAttachment[];
   pendingCardReference: ChatCardReference | null;
@@ -28,6 +31,7 @@ type SubmitMessageState = {
 };
 
 type SubmitMessageHandlers = {
+  clearPendingQuote?: () => void;
   createConversation: (
     collaboratorId?: string | null,
     options?: {
@@ -55,12 +59,14 @@ type SubmitMessageHandlers = {
 export function buildSubmitFingerprint(
   inputDraft: string,
   pendingAttachments: ChatAttachment[],
-  pendingCardReference: ChatCardReference | null
+  pendingCardReference: ChatCardReference | null,
+  quote?: ChatMessageQuote | null
 ) {
   return [
     inputDraft.trim(),
     ...pendingAttachments.map((attachment) => `${attachment.kind}:${attachment.name}:${attachment.id}`),
-    pendingCardReference ? `card:${pendingCardReference.id}:${pendingCardReference.mode}` : ''
+    pendingCardReference ? `card:${pendingCardReference.id}:${pendingCardReference.mode}` : '',
+    ...(quote ? [`quote:${quote.conversationId}:${quote.messageId}:${quote.text}`] : [])
   ].join('||');
 }
 
@@ -82,7 +88,7 @@ export async function submitMessage(state: SubmitMessageState, handlers: SubmitM
   }
 
   const consumedAsToolAction =
-    raw && !escapedSlashCommand && state.pendingAttachments.length === 0
+    raw && !escapedSlashCommand && state.pendingAttachments.length === 0 && !state.pendingQuote
       ? await handlers.submitToolCommand(raw)
       : false;
   if (consumedAsToolAction) {
@@ -157,6 +163,11 @@ export async function submitMessage(state: SubmitMessageState, handlers: SubmitM
   if (conversationForSelectedCollaborator?.collaboratorId === null) {
     handlers.setCommandStatus('原协作者已删除，已为当前协作者新开对话继续聊天。');
   }
+  const quote = normalizeMessageQuote(state.pendingQuote);
+  if (state.pendingQuote && (!quote || quote.conversationId !== writableSession.conversationId || !writableSession.messages.some(message => message.id === quote.messageId && message.role === quote.role && !message.toolInvocation && message.content.includes(quote.text)))) {
+    handlers.setCommandStatus('引用的原消息已变更或窗口不匹配，请取消后重新引用。', true);
+    return;
+  }
   const userMessage = createMessage(
     'user',
     raw,
@@ -165,9 +176,11 @@ export async function submitMessage(state: SubmitMessageState, handlers: SubmitM
     undefined,
     state.pendingCardReference
   );
+  if (quote) userMessage.quote = quote;
   const nextMessages = [...writableSession.messages, userMessage];
 
   handlers.addMessage(writableSession, userMessage);
+  handlers.clearPendingQuote?.();
   handlers.setInputDraft('');
   handlers.clearPendingAttachments();
   handlers.clearPendingCardReference();

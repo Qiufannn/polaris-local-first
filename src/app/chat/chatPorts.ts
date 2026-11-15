@@ -9,6 +9,7 @@ import type {
   ChatAttachment,
   ChatCardReference,
   ChatMessage,
+  ChatMessageQuote,
   CodeCard,
   CodeCardFileRole,
   CollectionShelf,
@@ -77,6 +78,8 @@ export type ChatUiReplyControllerState = Omit<
 };
 
 export type ChatUiActionState = {
+  pendingQuote?: ChatMessageQuote | null;
+  clearPendingQuote?: () => void;
   sending: boolean;
   editing: ChatEditingState;
   confirm: (message: string) => boolean;

@@ -413,6 +413,8 @@ export function MessageTimeline({ isWorldSettled }: MessageTimelineProps) {
     [renderItems, followMode, ui.focusedMessageId, timelineViewport, rowMetricsVersion, latestUserMessageId]
   );
   const rowActions = useMemo<MessageRowActions>(() => ({
+    quoteMessage: actions.quoteMessage,
+    openQuotedMessage: actions.openQuotedMessage,
     removeEditingAttachment: actions.removeEditingAttachment,
     updateEditingDraft: actions.updateEditingDraft,
     commitEdit: actions.commitEdit,
@@ -436,6 +438,8 @@ export function MessageTimeline({ isWorldSettled }: MessageTimelineProps) {
     runCodeCard,
     setCommandStatus: actions.setCommandStatus
   }), [
+    actions.quoteMessage,
+    actions.openQuotedMessage,
     actions.applyCustomCss,
     actions.applyToolPreview,
     actions.cancelEdit,

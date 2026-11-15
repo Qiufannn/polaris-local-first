@@ -1,4 +1,5 @@
 import { createUid } from '../../engines/id';
+import { recordSkillPreparation } from '../../engines/personaSkillEvidence';
 import type { OpenAiToolHistoryMode } from '../../engines/provider-runtime/providerRuntimeOpenAiToolHistory';
 import {
   isConversationTaskTerminal,
@@ -383,6 +384,7 @@ async function requestReplyRound({
       onProgress: streaming.queueProgress,
       onAudit: (audit) => {
         requestAudit = audit;
+        recordSkillPreparation(audit, collaboratorForReply?.advanced.skills, requestMessages);
       },
       onImageUnderstandingResults: (results) => {
         const patchesByMessageId = new Map<string, Map<string, string>>();

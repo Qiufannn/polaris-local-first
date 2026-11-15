@@ -9,6 +9,7 @@ import {
   buildProviderFailureRequestContent,
   isProviderFailureDiagnosticMessage
 } from '../providerErrorHandling';
+import { quotedRequestContent } from '../chatMessageQuote';
 
 export type RequestAttachment = ChatAttachment & { dataUrl?: string };
 
@@ -53,7 +54,7 @@ export function toRequestMessage(message: ChatMessage): RequestMessage {
   return {
     id: message.id,
     role: message.requestRole ?? message.role,
-    content: message.requestContent ?? message.content,
+    content: quotedRequestContent(message),
     timestamp: message.timestamp,
     origin: message.origin,
     thinkingText: message.thinkingText,

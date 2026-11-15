@@ -70,7 +70,8 @@ export function createChatActionHandlers({
     const submitFingerprint = buildSubmitFingerprint(
       latestSubmitState.inputDraft,
       latestSubmitState.pendingAttachments,
-      latestSubmitState.pendingCardReference
+      latestSubmitState.pendingCardReference,
+      ui.pendingQuote
     );
     if (activeSubmitFingerprintRef.current === submitFingerprint) {
       if (latestSubmitState.activeConversationId) {
@@ -90,6 +91,7 @@ export function createChatActionHandlers({
             ) ?? null
           : null;
       if (activeCompanionConnection) {
+        if (ui.pendingQuote) { ui.setCommandStatus('电脑 companion 暂不支持消息引用，请先取消引用。', true); return; }
         await submitCompanionMessage({
           inputDraft: latestSubmitState.inputDraft,
           pendingAttachments: latestSubmitState.pendingAttachments,
@@ -108,6 +110,7 @@ export function createChatActionHandlers({
         return;
       }
       await submitMessage({
+        pendingQuote: ui.pendingQuote,
         inputDraft: latestSubmitState.inputDraft,
         pendingAttachments: latestSubmitState.pendingAttachments,
         pendingCardReference: latestSubmitState.pendingCardReference,
@@ -120,6 +123,7 @@ export function createChatActionHandlers({
         personas: latestSubmitState.personas
       }, {
         createConversation: store.chat.createConversation,
+        clearPendingQuote: ui.clearPendingQuote,
         ensureConversationWritable: store.chat.ensureConversationWritable,
         addMessage: store.chat.addMessage,
         setInputDraft: store.chat.setInputDraft,

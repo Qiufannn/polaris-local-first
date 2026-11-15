@@ -18,6 +18,7 @@ export type AssistantPromptPartName =
   | 'runtime_clock_context'
   | 'model_runtime_context'
   | 'regex_trigger_context'
+  | 'local_skill_context'
   | 'task_seed_context'
   | 'task_runtime_context'
   | 'work_runtime_context'

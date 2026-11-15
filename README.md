@@ -1,6 +1,6 @@
 # Polaris
 
-Qiufann: [natural chat, compact stickers and Garden account connection](docs/qiufann/natural-chat-garden.md), [sticker picker and chat connection](docs/qiufann/stickers.md).
+Qiufann: [local skills, message quotes and fixed home](docs/qiufann/skills-quotes-home.md), [natural chat, compact stickers and Garden account connection](docs/qiufann/natural-chat-garden.md), [sticker picker and chat connection](docs/qiufann/stickers.md).
 
 Qiufann Android: [current Aru feature audit and owner priority](docs/qiufann/aru-feature-audit.md), [Notion diary writeback](docs/qiufann/notion-diary-write.md), and [verified GitHub memory writes](docs/qiufann/github-memory-write.md). Historical reports below describe their original stage, not the current feature state.
 

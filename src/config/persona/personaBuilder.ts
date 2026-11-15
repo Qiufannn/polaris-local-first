@@ -16,6 +16,8 @@ import {
   summarizePersonaTags
 } from './personaTags';
 import { PERSONA_EXPANSION_STARTERS } from './personaExpansion';
+import { normalizePersonaSkills } from '../../engines/personaSkills';
+import { normalizeHomeUrl } from '../../engines/localHome';
 
 export const RELATIONSHIP_OPTIONS: Array<{ id: PersonaRelationshipId; label: string; description: string }> = [
   { id: 'partner', label: '协作伙伴', description: '平等、诚实、一起把事情做成。' },
@@ -209,6 +211,8 @@ export function createPersonaTemplate(
       customBody: overrides.advanced?.customBody ?? '',
       regexRules: overrides.advanced?.regexRules ?? '',
       regexTriggers: overrides.advanced?.regexTriggers ?? '',
+      skills: normalizePersonaSkills(overrides.advanced?.skills),
+      homeUrl: normalizeHomeUrl(overrides.advanced?.homeUrl),
       snippets: overrides.advanced?.snippets ?? []
     },
     mcp: {
