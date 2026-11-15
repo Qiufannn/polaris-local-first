@@ -31,3 +31,10 @@ Android 使用 PKCE S256、一次性 state、固定 issuer/resource/回调路径
 - 原生 88 测试通过；新增花园测试覆盖公共客户端、PKCE/resource、取消与错误来源、凭证端点绑定、来源隔离及本机断开。
 - 390px 实际浏览器交互检查通过：双方小贴图无文件卡/成功回执/空气泡，正文独立气泡，完整诊断和失败仍可见。花园 UI 用合成授权验证身份核对后启用、工具同步与断开；不把合成 UI 测试当真实花园授权。
 - 本人已确认手机浏览器登录花园。**新版在手机上的真实授权、原账号核对和工具调用仍待覆盖安装后验收。**
+
+## 20 版交付凭据
+
+- 源码 `05d226afb04132493e7ea9959b2e053bda557f01`；[CI #20](https://github.com/Qiufannn/polaris-local-first/actions/runs/43720295426) 四作业成功。完整 Web 为 498 文件 / 3183 测试；原生 artifact 的测试 XML 独立核对 88 项，0 failures / errors / skipped。主、额外及 Worker 类型检查、生产构建和签名自检通过。
+- [个人签名包 polaris-android-signed-20-1](https://github.com/Qiufannn/polaris-local-first/actions/runs/43720295426/artifacts/14164700918)。ZIP SHA256 `49cfc5e914cb97e254c3e13593c53b9eb112aa68c54f67eed395831e16ec2736` 与服务端 digest 一致；APK SHA256 `36dbe3328a85f42dfc409a29661a050b9fdff33baabb2dae7c9f8b6954e47814`，16347118 字节。
+- 包名 `com.alyssa.polaris`、versionCode 20、个人证书 SHA256 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5` 已核对。与同次 CI unsigned APK 原条目逐字节一致，仅新增三项签名元数据；101 张图库原字节一致，花园授权与身份核对、贴图和分段气泡的新 Web/原生代码均已核验入包。
+- 只推送定制分支，未合并 main、未发布 Release。安装与真实花园账号验收状态仍以上述手机验收说明为准。
