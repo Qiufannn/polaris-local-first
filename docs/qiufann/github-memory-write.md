@@ -7,7 +7,7 @@ GitHub 是主要记忆，Notion 是日记及补充。本人已报告两处原有
 1. 覆盖安装含此功能的个人签名更新包。
 2. 在 GitHub Settings → Developer settings → GitHub Apps 打开原 App。Permissions & events → Repository permissions → Contents 改为 **Read and write**，保存。无需新建 App、Client Secret、私钥或 PAT。
 3. 在 Settings → Applications → Installed GitHub Apps 批准此 App 的权限更新（如有 Review request）；安装范围仍仅选择目标记忆仓库。
-4. 在原 Polaris GitHub 主记忆服务卡断开本机连接，再完成一次设备登录，以取得更新后的授权。普通配置中的仓库地址和公开 Client ID 留用。
+4. 在原 Polaris GitHub 主记忆服务卡再次点连接，完成一次设备登录，以取得更新后的授权。普通配置中的仓库地址和公开 Client ID 留用；不必重建 App 或服务卡。
 5. 开启 **允许 GitHub 新增和更正记忆**，同步后应出现 `github_memory_read` 和 `github_memory_write`，保存。该开关是本机写入许可，不表示服务商写权限已验证；实际提交才能验收。
 
 ## 写入触发和工具
@@ -43,4 +43,17 @@ GitHub 是主要记忆，Notion 是日记及补充。本人已报告两处原有
 
 合成手机 UI 验证通过：写入默认关闭；开启仅同步两个工具，不提交任何记忆；重开后开关恢复；读取仍可验证；关闭后只保留读取工具。原真实记忆未在开发或测试中改动。
 
-完整 CI、个人签名包与本人实际手机写入回执待补记。可由本人明确要求创建 `continuity/polaris-write-check.md`，写一行中性的测试文字，验收真实 commit、文件 SHA 和按版本回读，再测试唯一片段更正；不要把自动测试说成本人的实际写入。
+可由本人明确要求创建 `continuity/polaris-write-check.md`，写一行中性的测试文字，验收真实 commit、文件 SHA 和按版本回读，再测试唯一片段更正；不要把自动测试说成本人的实际写入。
+
+## 第 15 版交付证据
+
+- 实现 commit：`c6ef9833119828c1f25539eda90047c6d5d39bb9`。
+- [CI #15](https://github.com/Qiufannn/polaris-local-first/actions/runs/43671041088) 四个 job 全部成功；额外工具/API 与 Worker 类型检查通过，494 个 Web 测试文件 / 3,139 项通过。下载的原生 XML 确认 66 项通过、0 失败。
+- 推荐 [signed-15-1 artifact](https://github.com/Qiufannn/polaris-local-first/actions/runs/43671041088/artifacts/14144507053)，解压后用 `polaris.apk` 覆盖安装。版本 `1.0-qiufann.15`，versionCode `15`，包名 `com.alyssa.polaris`。
+- 签名 ZIP SHA-256：`e8802e90d1d7c6844b195e000172fe16ba28aa760db187ca4b69769644029b49`。
+- APK SHA-256：`a00de8d19b5187df07145ce94313bb5125dace74efebecdbeb3e9be8f233119e`。
+- 个人证书 SHA-256：`f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，与既有版本相同；独立 `apksigner verify` 成功，版本、源码、run ID 与摘要匹配。
+- unsigned artifact `14143929001` 的 ZIP SHA-256：`293167d7629d56dbbf2fa6c1ad51bf88b4243361d19456c59d1a3dbc2d0df3c7`，APK SHA-256：`ee864d5a551b6bc9f1451188a60537d03b3f106a292507d1f1e0b3433178b90d`。签名 APK 中每项原始 ZIP 内容与之逐字节相同，仅新增三个 v1 签名条目；已确认实际交付包包含原生写入器、写回开关与分离的调用授权标志。
+- 本人的 GitHub 权限更新、真实新增/更正与按提交回读仍待手机验收。本次开发没有写入原私人记忆库。
+
+官方权限更新依据：[修改 GitHub App 权限](https://docs.github.com/en/apps/maintaining-github-apps/modifying-a-github-app-registration)、[批准更新权限](https://docs.github.com/en/apps/using-github-apps/approving-updated-permissions-for-a-github-app)。权限修改须经安装账户批准后才生效。
