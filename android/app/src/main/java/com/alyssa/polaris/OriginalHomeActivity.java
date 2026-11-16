@@ -20,6 +20,8 @@ public class OriginalHomeActivity extends Activity {
     private String origin;
     private TextView address;
     private ValueCallback<Uri[]> fileCallback;
+    private OriginalHomeDownload download;
+    private byte[] exportBytes;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         try { origin = OriginalHomePolicy.origin(getIntent().getStringExtra("url")); } catch (Exception e) { finish(); return; }
@@ -35,7 +37,7 @@ public class OriginalHomeActivity extends Activity {
                 boolean own = OriginalHomePolicy.trustedPage(url, origin);
                 address.setVisibility(own ? android.view.View.GONE : android.view.View.VISIBLE);
                 address.setText(Uri.parse(url).getHost() == null ? "正在打开登录页面" : Uri.parse(url).getHost());
-                if (own) view.evaluateJavascript(OriginalHomePolicy.chatHook(), null);
+                if (own) view.evaluateJavascript(OriginalHomePolicy.chatHook() + OriginalHomePolicy.downloadHook(), null);
                 CookieManager.getInstance().flush();
             }
         });
@@ -52,16 +54,43 @@ public class OriginalHomeActivity extends Activity {
                 ((WebView.WebViewTransport) result.obj).setWebView(popup); result.sendToTarget(); return true;
             }
         });
+        browser.setDownloadListener((url, agent, disposition, type, length) -> downloadFile(url));
         browser.loadUrl(OriginalHomePolicy.initialUrl(origin, getIntent().getBooleanExtra("signIn", false)));
     }
+    private void downloadFile(String url) {
+            if (download != null || exportBytes != null) { android.widget.Toast.makeText(this,"请先完成当前导出",android.widget.Toast.LENGTH_SHORT).show(); return; }
+            download = new OriginalHomeDownload(browser, origin, url, (name,mime,bytes,error) -> {
+                download = null;
+                if (isFinishing()) return;
+                if (error != null) { android.widget.Toast.makeText(this,error,android.widget.Toast.LENGTH_LONG).show(); return; }
+                exportBytes = bytes;
+                try { startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(mime).putExtra(Intent.EXTRA_TITLE,name),75); }
+                catch(Exception e) { exportBytes=null;android.widget.Toast.makeText(this,"未打开保存位置，原数据仍保留",android.widget.Toast.LENGTH_LONG).show(); }
+            });
+            download.start(this);
+
+    }
     private boolean navigate(Uri uri) {
+        if (OriginalHomePolicy.blobUrl(uri.toString(), origin) && OriginalHomePolicy.trustedPage(browser.getUrl(), origin)) { downloadFile(uri.toString()); return true; }
         if (OriginalHomePolicy.CHAT_LINK.equals(uri.toString()) && OriginalHomePolicy.trustedPage(browser.getUrl(), origin)) { setResult(RESULT_OK, new Intent().putExtra("action", "chat")); finish(); return true; }
         return !"https".equals(uri.getScheme());
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if (request == 75 && exportBytes != null) {
+            byte[] bytes = exportBytes; exportBytes = null;
+            if (result == RESULT_OK && data != null && data.getData() != null) {
+                Uri target = data.getData(); android.content.ContentResolver resolver = getContentResolver();
+                new Thread(() -> {
+                    String message;
+                    try (java.io.OutputStream output = resolver.openOutputStream(target,"w")) { if (output == null) throw new java.io.IOException(); output.write(bytes); output.flush(); message="文件已保存"; }
+                    catch(Exception e) { message="文件未保存成功，请保留原数据并重新导出"; }
+                    final String notice=message; runOnUiThread(() -> { if(!isFinishing()) android.widget.Toast.makeText(this,notice,android.widget.Toast.LENGTH_LONG).show(); });
+                },"home-file-export").start();
+            }
+        }
         if (request == 74 && fileCallback != null) { fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result, data)); fileCallback = null; }
     }
     @Override public void onBackPressed() { if (browser != null && browser.canGoBack()) browser.goBack(); else { setResult(RESULT_OK, new Intent().putExtra("action", "closed")); finish(); } }
-    @Override protected void onDestroy() { if (fileCallback != null) fileCallback.onReceiveValue(null); if (browser != null) { browser.stopLoading(); browser.destroy(); } super.onDestroy(); }
+    @Override protected void onDestroy() { if (download != null) download.cancel(); exportBytes=null; if (fileCallback != null) fileCallback.onReceiveValue(null); if (browser != null) { browser.stopLoading(); browser.destroy(); } super.onDestroy(); }
 }

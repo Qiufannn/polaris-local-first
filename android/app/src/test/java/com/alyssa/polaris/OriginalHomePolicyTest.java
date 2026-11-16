@@ -5,6 +5,22 @@ import org.json.JSONObject;
 import org.junit.Test;
 
 public class OriginalHomePolicyTest {
+    @Test public void sharedLedgerAndReadingUseNamedToolsWithoutEnablingRawChatOrArbitraryArchive() throws Exception {
+        for (String name : new String[]{"ledger_summary","ledger_budget_save","ledger_archive","reading_list","reading_read","reading_progress_save","reading_note_save","reading_book_update"}) {
+            JSONObject rpc = new JSONObject().put("jsonrpc","2.0").put("method","tools/call").put("params",new JSONObject().put("name",name).put("arguments",new JSONObject().put("client_request_id","unit-stable-id")));
+            assertEquals(name, OriginalHomePolicy.rpc(rpc.toString()).getJSONObject("params").getString("name"));
+        }
+        assertFalse(OriginalHomePolicy.TOOLS.contains("home_archive")); assertFalse(OriginalHomePolicy.TOOLS.contains("reading_import"));
+    }
+    @Test public void exportsAreBoundToTheApprovedBlobOriginAndSafeTextFilenames() throws Exception {
+        String origin="https://unit.chatgpt.site";
+        assertTrue(OriginalHomePolicy.blobUrl("blob:"+origin+"/unit-book",origin));
+        for(String value:new String[]{null,"https://unit.chatgpt.site/book","blob:https://evil.invalid/book","blob:"+origin+".evil.invalid/book","blob:"+origin+"/book?secret=unit"})assertFalse(OriginalHomePolicy.blobUrl(value,origin));
+        assertEquals("共读书.json",OriginalHomePolicy.downloadName("共读书.json","application/json"));
+        String safe=OriginalHomePolicy.downloadName("../../book\n.csv","text/csv");assertFalse(safe.contains("/"));assertFalse(safe.contains("\n"));assertTrue(safe.endsWith(".csv"));
+        assertThrows(Exception.class,()->OriginalHomePolicy.downloadName("file.apk","application/vnd.android.package-archive"));
+        assertFalse(OriginalHomePolicy.downloadHook().contains("innerHTML"));assertFalse(OriginalHomePolicy.downloadHook().contains("fetch("));
+    }
     @Test public void onlyAcceptsPrivateSiteHomeAndExactMcpWithoutCredentialsOrRedirectParameters() throws Exception {
         assertEquals("https://unit.example.chatgpt.site", OriginalHomePolicy.origin("https://unit.example.chatgpt.site/"));
         assertEquals("https://unit.example.chatgpt.site/mcp", OriginalHomePolicy.endpoint("https://unit.example.chatgpt.site/mcp"));
