@@ -60,7 +60,10 @@ export function ChatgptSubscriptionCard() {
   async function connected(next: ChatgptStatus) {
     setStatus(next); clearModel();
     const active = next.accounts.find(item => item.ref === next.activeRef);
-    if (active?.planGranted && active.connected) await loadModels(true);
+    if (active?.planGranted && active.connected) {
+      setBusy('models');
+      await loadModels(true);
+    }
   }
 
   return <section className="provider-stack" aria-label={t('chatgpt.title')}>
@@ -106,7 +109,7 @@ export function ChatgptSubscriptionCard() {
         </label>}
         {model && <button className="btn-secondary" type="button" disabled={Boolean(busy)} onClick={() => useModel(model)}>{t('chatgpt.useModel')}</button>}
       </>}
-      {busy && <p role="status">{t('chatgpt.busy')}</p>}
+      {busy && <p role="status">{t(busy === 'login' ? 'chatgpt.authorizing' : busy === 'models' ? 'chatgpt.loadingModels' : 'chatgpt.busy')}</p>}
     </>}
     {message && <p role="status">{message}</p>}
   </section>;
