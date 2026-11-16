@@ -102,6 +102,7 @@ export function createChatReplyStoreBindings(
   return {
     chat: {
       conversations: selectChatConversations(store.chat.conversations, options),
+      getMemoryRecallConversations: () => store.chat.readLatestState().conversations,
       pendingWorkspaceProposals: store.chat.pendingWorkspaceProposals,
       findConversation: store.chat.findConversation,
       ensureConversationWritable: store.chat.ensureConversationWritable,
@@ -176,6 +177,7 @@ export function createChatToolStoreBindings(
   return {
     chat: {
       conversations: liveConversations,
+      getMemoryRecallConversations: () => store.chat.readLatestState().conversations,
       pendingWorkspaceProposals: store.chat.pendingWorkspaceProposals,
       ensureConversationWritable: store.chat.ensureConversationWritable,
       addMessage: store.chat.addMessage,

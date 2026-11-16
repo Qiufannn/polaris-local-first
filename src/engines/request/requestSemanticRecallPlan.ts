@@ -6,6 +6,7 @@ import {
   type MemoryRecallCorpusAnchorStats
 } from '../memoryRecallAnchors';
 import { isNaturalMemorySourceMessage } from '../memoryNaturalSourceMessage';
+import { conversationMatchesMemoryRecallScope, memorySourceRoleLabel } from '../memoryConversationScope';
 import { tokenizeMemoryRecallTerms } from '../memoryRecallTerms';
 import { fingerprintRequestContextValue } from './requestContextReceipt';
 import { estimateTextTokens } from './requestTokenEstimation';
@@ -56,7 +57,7 @@ export type AssistantSemanticRecallConfig = {
 
 export type AssistantSemanticRecallConversation = Pick<
   Conversation,
-  'id' | 'title' | 'collaboratorId' | 'updatedAt' | 'messages'
+  'id' | 'title' | 'collaboratorId' | 'updatedAt' | 'messages' | 'kind' | 'group' | 'groupRoomId'
 >;
 
 export const DEFAULT_SEMANTIC_RECALL_CONFIG: AssistantSemanticRecallConfig = {
@@ -153,26 +154,22 @@ function scoreTextOverlap(params: {
 }
 
 function formatCandidateLabel(conversation: AssistantSemanticRecallConversation) {
-  return conversation.title.trim() || '未命名对话';
-}
-
-function formatDialogueRole(role: ChatMessage['role']) {
-  if (role === 'assistant') return 'assistant';
-  if (role === 'system') return 'system';
-  return 'user';
+  const title = conversation.title.trim() || '未命名对话';
+  return conversation.kind === 'group' ? `群聊｜${title}` : title;
 }
 
 function formatCandidateText(messages: ChatMessage[]) {
   const normalized = messages
     .map((message) => ({
       role: message.role,
+      label: memorySourceRoleLabel(message),
       content: message.content.trim()
     }))
     .filter((message) => message.content);
   if (normalized.length === 1 && normalized[0]?.role === 'user') {
     return normalized[0].content;
   }
-  return normalized.map((message) => `${formatDialogueRole(message.role)}: ${message.content}`).join('\n\n');
+  return normalized.map((message) => `${message.label}: ${message.content}`).join('\n\n');
 }
 
 function buildCandidate(params: {
@@ -258,6 +255,13 @@ function latestDialogueTail(conversation: AssistantSemanticRecallConversation, c
     .slice(0, latestUserIndex + 1)
     .filter((message) => message.role === 'user')
     .slice(-config.recentTailUserMessageCount);
+  if (conversation.kind === 'group') {
+    // Keep a few named public replies, rather than treating the last pet/member as the only assistant.
+    const replies = messages.slice(latestUserIndex + 1)
+      .filter((message) => message.role === 'assistant')
+      .slice(-config.recentTailUserMessageCount);
+    return [...recentUserMessages, ...replies];
+  }
   let finalAssistantReply: ChatMessage | null = null;
   for (let index = latestUserIndex + 1; index < messages.length; index += 1) {
     const message = messages[index];
@@ -266,14 +270,6 @@ function latestDialogueTail(conversation: AssistantSemanticRecallConversation, c
     }
   }
   return finalAssistantReply ? [...recentUserMessages, finalAssistantReply] : recentUserMessages;
-}
-
-function sameCollaboratorScope(params: {
-  currentCollaboratorId?: string | null;
-  conversationCollaboratorId: string | null;
-}) {
-  if (!params.currentCollaboratorId) return true;
-  return params.conversationCollaboratorId === params.currentCollaboratorId;
 }
 
 function dedupeCandidates(candidates: AssistantSemanticRecallCandidateDecision[]) {
@@ -339,10 +335,7 @@ export function resolveRequestSemanticRecallPlan(args?: {
 
   const scopedConversations = args.conversations
     .filter((conversation) => conversation.id !== args.activeConversationId)
-    .filter((conversation) => sameCollaboratorScope({
-      currentCollaboratorId: args.currentCollaboratorId,
-      conversationCollaboratorId: conversation.collaboratorId
-    }));
+    .filter((conversation) => conversationMatchesMemoryRecallScope(conversation, args.currentCollaboratorId));
   const scopedConversationIds = new Set(scopedConversations.map((conversation) => conversation.id));
   const recentTailCandidates = scopedConversations
     .map((conversation) => ({

@@ -1,6 +1,7 @@
 import type { ChatMessage, Conversation } from '../types/domain';
 import { extractMemoryRecallAnchors } from './memoryRecallAnchors';
 import { isNaturalMemorySourceMessage } from './memoryNaturalSourceMessage';
+import { conversationMatchesMemoryRecallScope, memorySourceRoleLabel } from './memoryConversationScope';
 import { tokenizeMemoryRecallTerms } from './memoryRecallTerms';
 
 export type MemoryRetrievalChunkKind = 'source_message' | 'user_intent' | 'dialogue_turn';
@@ -38,7 +39,7 @@ export type MemoryRetrievalSearchResult = {
 
 export type MemoryRetrievalConversation = Pick<
   Conversation,
-  'id' | 'title' | 'collaboratorId' | 'updatedAt' | 'messages'
+  'id' | 'title' | 'collaboratorId' | 'updatedAt' | 'messages' | 'kind' | 'group' | 'groupRoomId'
 >;
 
 export function normalizeMemoryRetrievalText(text: string): string {
@@ -51,14 +52,6 @@ export function normalizeMemoryRetrievalText(text: string): string {
 
 export function tokenizeMemoryRetrievalQuery(text: string): string[] {
   return tokenizeMemoryRecallTerms(normalizeMemoryRetrievalText(text));
-}
-
-function sameCollaboratorScope(params: {
-  currentCollaboratorId?: string | null;
-  conversationCollaboratorId: string | null;
-}) {
-  if (!params.currentCollaboratorId) return true;
-  return params.conversationCollaboratorId === params.currentCollaboratorId;
 }
 
 function stableHash(text: string) {
@@ -74,15 +67,11 @@ function safeTimestamp(value: number | undefined, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-function formatRoleLabel(role: ChatMessage['role']) {
-  return role === 'assistant' ? 'assistant' : 'user';
-}
-
 function formatSourceTitle(conversation: MemoryRetrievalConversation, message: ChatMessage) {
   const conversationTitle = conversation.title.trim() || '未命名对话';
   const timestamp = safeTimestamp(message.timestamp, conversation.updatedAt ?? 0);
   const date = timestamp > 0 ? new Date(timestamp).toISOString().slice(0, 10) : 'unknown date';
-  return `${conversationTitle} · ${date} · ${formatRoleLabel(message.role)}`;
+  return `${conversationTitle} · ${date} · ${memorySourceRoleLabel(message)}`;
 }
 
 function messageTimestamp(message: ChatMessage, conversation: MemoryRetrievalConversation) {
@@ -90,9 +79,9 @@ function messageTimestamp(message: ChatMessage, conversation: MemoryRetrievalCon
 }
 
 function formatChunkText(messages: ChatMessage[]) {
-  if (messages.length === 1) return messages[0]?.content.trim() ?? '';
+  if (messages.length === 1 && !messages[0]?.assistantName && !messages[0]?.speakerCollaboratorId) return messages[0]?.content.trim() ?? '';
   return messages
-    .map((message) => `${formatRoleLabel(message.role)}: ${message.content.trim()}`)
+    .map((message) => `${memorySourceRoleLabel(message)}: ${message.content.trim()}`)
     .join('\n\n');
 }
 
@@ -152,10 +141,7 @@ function scopedConversations(args: {
 }) {
   return args.conversations
     .filter((conversation) => conversation.id !== args.activeConversationId)
-    .filter((conversation) => sameCollaboratorScope({
-      currentCollaboratorId: args.currentCollaboratorId,
-      conversationCollaboratorId: conversation.collaboratorId
-    }));
+    .filter((conversation) => conversationMatchesMemoryRecallScope(conversation, args.currentCollaboratorId));
 }
 
 export function buildConversationRetrievalChunks(args: {

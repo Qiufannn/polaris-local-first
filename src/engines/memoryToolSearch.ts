@@ -4,7 +4,8 @@ import {
   searchMemoryRetrievalChunks,
   normalizeMemoryRetrievalText,
   tokenizeMemoryRetrievalQuery,
-  type MemoryRetrievalSearchResult
+  type MemoryRetrievalSearchResult,
+  type MemoryRetrievalConversation
 } from './memoryRetrievalIndex';
 
 export type MemorySearchMode = 'auto' | 'summary' | 'source';
@@ -42,7 +43,7 @@ export type MemorySourceOpenResult = {
   conversationId: string;
   conversationTitle: string;
   updatedAt: number;
-  messages: Array<Pick<ChatMessage, 'id' | 'role' | 'content' | 'timestamp'>>;
+  messages: Array<Pick<ChatMessage, 'id' | 'role' | 'content' | 'timestamp' | 'assistantName' | 'speakerCollaboratorId'>>;
   truncated: boolean;
 };
 
@@ -52,14 +53,6 @@ const DEFAULT_MEMORY_SOURCE_OPEN_MAX_CHARS = 8_000;
 function resolvePositiveLimit(value: number | undefined, fallback: number) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return fallback;
   return Math.floor(value);
-}
-
-function sameCollaboratorScope(args: {
-  currentCollaboratorId?: string | null;
-  conversationCollaboratorId: string | null;
-}) {
-  if (!args.currentCollaboratorId) return true;
-  return args.conversationCollaboratorId === args.currentCollaboratorId;
 }
 
 function scoreSummary(query: string, summary: PersonaConversationSummary): MemorySummarySearchResult | null {
@@ -127,7 +120,7 @@ export function searchCollaboratorMemorySources(args: {
   mode?: MemorySearchMode;
   maxResults?: number;
   summaries?: PersonaConversationSummary[];
-  conversations: Pick<Conversation, 'id' | 'title' | 'collaboratorId' | 'updatedAt' | 'messages'>[];
+  conversations: MemoryRetrievalConversation[];
   activeConversationId?: string | null;
   currentCollaboratorId?: string | null;
 }): MemorySearchResult {
@@ -193,7 +186,9 @@ export function openConversationMemorySource(args: {
       id: message.id,
       role: message.role,
       content: nextContent,
-      timestamp: message.timestamp
+      timestamp: message.timestamp,
+      ...(message.assistantName ? { assistantName: message.assistantName } : {}),
+      ...(message.speakerCollaboratorId ? { speakerCollaboratorId: message.speakerCollaboratorId } : {})
     });
     usedChars += nextContent.length;
     if (nextContent.length < content.length) {

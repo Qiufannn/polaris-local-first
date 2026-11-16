@@ -4,6 +4,7 @@ import {
   type AssistantSemanticRecallConfig
 } from '../../engines/request/requestSemanticRecallPlan';
 import type { ChatMessage, Conversation } from '../../types/domain';
+import { conversationMatchesMemoryRecallScope } from '../../engines/memoryConversationScope';
 
 function shouldPreferLiveConversation(params: {
   conversation: Conversation;
@@ -68,14 +69,6 @@ export function mergeRequestSemanticRecallConversations(params: {
   return merged;
 }
 
-function sameCollaboratorScope(params: {
-  currentCollaboratorId?: string | null;
-  conversationCollaboratorId: string | null;
-}) {
-  if (!params.currentCollaboratorId) return true;
-  return params.conversationCollaboratorId === params.currentCollaboratorId;
-}
-
 export function selectRequestSemanticRecallConversationIds(params: {
   conversations: Conversation[];
   activeConversationId: string;
@@ -86,10 +79,7 @@ export function selectRequestSemanticRecallConversationIds(params: {
   const count = Math.max(config.recentTailConversationCount, config.voiceAnchorCount);
   return params.conversations
     .filter((conversation) => conversation.id !== params.activeConversationId)
-    .filter((conversation) => sameCollaboratorScope({
-      currentCollaboratorId: params.currentCollaboratorId,
-      conversationCollaboratorId: conversation.collaboratorId
-    }))
+    .filter((conversation) => conversationMatchesMemoryRecallScope(conversation, params.currentCollaboratorId))
     .sort((left, right) => right.updatedAt - left.updatedAt)
     .slice(0, count)
     .map((conversation) => conversation.id);

@@ -37,7 +37,10 @@ export function createChatToolActions({
   const memoryActions = createChatMemoryActions({
     ui,
     store,
-    frontstageCollaboratorId: store.space.frontstageCollaboratorId,
+    frontstageCollaboratorId: derived.activeConversation
+      && store.chat.findConversation(derived.activeConversation.id)?.kind === 'group'
+      ? derived.activeCollaboratorSourceId
+      : store.space.frontstageCollaboratorId,
     activeConversation,
     addRuntimeToolMessage
   });

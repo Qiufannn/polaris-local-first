@@ -291,7 +291,7 @@ describe('createChatReplyRunner', () => {
     }));
   });
 
-  it('uses the current chat catalog for recall without rereading persisted catalog rows', async () => {
+  it('recalls a member group through the memory catalog without adding it to single-chat navigation', async () => {
     const latestConversations = [
       {
         id: 'conversation-1',
@@ -317,8 +317,8 @@ describe('createChatReplyRunner', () => {
         id: 'conversation-group',
         title: '群聊',
         kind: 'group',
-        group: { title: '群聊', memberIds: [] },
-        collaboratorId: 'pharos',
+        group: { title: '群聊', memberIds: ['pharos'], memoryRecallEnabled: true },
+        collaboratorId: null,
         activeProjectId: null,
         draft: '',
         pinnedAt: null,
@@ -347,7 +347,8 @@ describe('createChatReplyRunner', () => {
       },
       store: {
         chat: {
-          conversations: latestConversations,
+          conversations: latestConversations.filter((c: { id: string }) => c.id !== 'conversation-group'),
+          getMemoryRecallConversations: () => latestConversations,
           pendingWorkspaceProposals: [] as never[],
           findConversation: vi.fn(),
           ensureConversationWritable: vi.fn(async (conversationId: string) => writableConversation(conversationId)),
@@ -490,7 +491,7 @@ describe('createChatReplyRunner', () => {
     });
 
     expect(readConversationMessagesMock).toHaveBeenCalledWith('conversation-old');
-    expect(readConversationMessagesMock).not.toHaveBeenCalledWith('conversation-group');
+    expect(readConversationMessagesMock).toHaveBeenCalledWith('conversation-group');
     const requestReplyCalls = requestReplyMock.mock.calls as unknown as Array<[{
       requestSnapshot: {
         conversations: Array<{ id: string }>;
@@ -502,7 +503,7 @@ describe('createChatReplyRunner', () => {
       'conversation-1',
       'conversation-old'
     ]);
-    expect(requestSnapshot.semanticRecallConversations.map((conversation: { id: string }) => conversation.id)).not.toContain(
+    expect(requestSnapshot.semanticRecallConversations.map((conversation: { id: string }) => conversation.id)).toContain(
       'conversation-group'
     );
     expect(requestReplyMock).toHaveBeenCalledWith(expect.objectContaining({

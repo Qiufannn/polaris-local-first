@@ -13,6 +13,7 @@ import {
 } from './chatSemanticRecallCorpus';
 import { recordChatSendPerformanceMark } from './chatSendPerformanceTrace';
 import { selectChatConversations } from './liveConversationCatalog';
+import { selectMemoryRecallConversations } from '../../engines/memoryConversationScope';
 
 type CreateChatReplyRunnerArgs = {
   ui: ChatUiReplyControllerState;
@@ -91,9 +92,10 @@ export function createChatReplyRunner({
       defaultEnabled: defaultSemanticRecallEnabled
     }) ?? defaultSemanticRecallEnabled;
     const semanticRecallChatState = store.chat.readLatestState();
-    const semanticRecallLiveConversations = selectChatConversations(semanticRecallChatState.conversations, {
-      includeGroupConversations
-    });
+    const semanticRecallLiveConversations = selectMemoryRecallConversations(
+      store.chat.getMemoryRecallConversations?.() ?? semanticRecallChatState.conversations,
+      params.collaboratorId
+    );
     const semanticRecallConversations = semanticRecallEnabled
       ? await readRequestSemanticRecallConversations({
           liveConversations: semanticRecallLiveConversations,

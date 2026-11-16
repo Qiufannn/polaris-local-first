@@ -1,5 +1,7 @@
 import { buildWeightedMemoryLines, classifyMemoryWriteItems, memoryPreviewSummary } from '../../engines/memoryEngine';
 import { createUid } from '../../engines/id';
+import { memorySourceRoleLabel, selectMemoryRecallConversations } from '../../engines/memoryConversationScope';
+import { isNaturalMemorySourceMessage } from '../../engines/memoryNaturalSourceMessage';
 import { orderMemoryReferenceDocsNewestFirst } from '../../engines/memoryReferenceDocs';
 import {
   openConversationMemorySource,
@@ -28,12 +30,6 @@ function formatDate(timestamp: number) {
     : 'unknown date';
 }
 
-function formatRoleLabel(role: ChatMessage['role']) {
-  if (role === 'assistant') return 'assistant';
-  if (role === 'system') return 'system';
-  return 'user';
-}
-
 function excerptText(text: string, maxChars = 520) {
   const normalized = text.trim().replace(/\s+/g, ' ');
   return normalized.length > maxChars ? `${normalized.slice(0, maxChars)}...` : normalized;
@@ -46,6 +42,10 @@ export function createChatMemoryActions({
   activeConversation,
   addRuntimeToolMessage
 }: CreateChatMemoryActionsArgs): MemoryActions {
+  const recallConversations = (collaboratorId: string) => selectMemoryRecallConversations(
+    store.chat.getMemoryRecallConversations?.() ?? store.chat.conversations ?? [],
+    collaboratorId
+  );
   const resolveTargetCollaborator = (conversationId?: string | null) => {
     const targetCollaboratorId = resolveChatCollaboratorOwnerId({
       frontstageCollaboratorId,
@@ -174,7 +174,7 @@ export function createChatMemoryActions({
       mode,
       maxResults,
       summaries: targetCollaborator.memory.conversationSummaries,
-      conversations: store.chat.conversations,
+      conversations: recallConversations(targetCollaborator.id),
       activeConversationId: conversationId ?? null,
       currentCollaboratorId: targetCollaborator.id
     });
@@ -213,10 +213,11 @@ export function createChatMemoryActions({
     conversationId?: string | null
   ) => {
     const targetCollaborator = resolveTargetCollaborator(conversationId);
+    if (!targetCollaborator) return { ok: false as const, error: '当前没有可读取记忆原文的协作者。' };
     const opened = openConversationMemorySource({
-      conversations: store.chat.conversations.filter((candidate) =>
-        !targetCollaborator || candidate.collaboratorId === targetCollaborator.id
-      ),
+      conversations: recallConversations(targetCollaborator.id).map((candidate) => candidate.kind === 'group'
+        ? { ...candidate, messages: candidate.messages.filter(isNaturalMemorySourceMessage) }
+        : candidate),
       sourceConversationId,
       sourceMessageIds,
       maxChars
@@ -230,7 +231,7 @@ export function createChatMemoryActions({
       `updated=${formatDate(opened.updatedAt)}`,
       opened.messages.length
         ? opened.messages.map((message) =>
-            `[${formatDate(message.timestamp)}] ${formatRoleLabel(message.role)} · messageId=${message.id}\n${message.content.trim()}`
+            `[${formatDate(message.timestamp)}] ${memorySourceRoleLabel(message)} · messageId=${message.id}\n${message.content.trim()}`
           ).join('\n\n')
         : '这段原文没有可读取消息。',
       opened.truncated ? '（已按 maxChars 截断。）' : ''

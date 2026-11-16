@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createChatMemoryActions } from './chatMemoryToolActions';
-import type { ChatMessage, Persona, ToolInvocation } from '../../types/domain';
+import type { ChatMessage, Conversation, Persona, ToolInvocation } from '../../types/domain';
 import type { WritableConversationBody } from '../../stores/chatStore';
 
 function writableConversation(): WritableConversationBody {
@@ -73,7 +73,7 @@ function createPersona(): Persona {
   } as unknown as Persona;
 }
 
-function createMemoryActions() {
+function createMemoryActions(conversations: Conversation[] = []) {
   const persona = createPersona();
   const addRuntimeToolMessage = vi.fn();
   const setCommandStatus = vi.fn();
@@ -83,6 +83,8 @@ function createMemoryActions() {
     ui: { setCommandStatus },
     store: {
       chat: {
+        conversations: [],
+        getMemoryRecallConversations: () => conversations,
         findConversation: vi.fn(() => ({ id: 'conv-1', collaboratorId: 'pharos' })),
         updateMessage
       } as never,
@@ -124,6 +126,36 @@ function memoryPreviewMessage(): ChatMessage {
 }
 
 describe('createChatMemoryActions', () => {
+  it('searches and opens the member group public messages through the recall catalog, preserving pet names', () => {
+    const shared = {
+      id: 'pets', title: '小猫小狗', kind: 'group', collaboratorId: null, updatedAt: 5,
+      group: {
+        memberIds: ['pharos', 'cat'], memoryRecallEnabled: true,
+        privateLanes: { cat: [{ content: '私域内容不公开' }] }
+      },
+      messages: [
+        { id: 'u', role: 'user', content: '给小猫一个蓝色毛线球', timestamp: 1 },
+        { id: 'c', role: 'assistant', assistantName: '团团', speakerCollaboratorId: 'cat', content: '蓝色毛线球真好玩', timestamp: 2 }
+      ]
+    } as unknown as Conversation;
+    const { actions } = createMemoryActions([shared]);
+    const searched = actions.searchCollaboratorMemory!('蓝色毛线球', 'source', 3, 'conv-1');
+    expect(searched.ok).toBe(true);
+    if (searched.ok) expect(searched.detailText).toContain('sourceConversationId=pets');
+    const opened = actions.openMemorySource!('pets', ['c'], 1000, 'conv-1');
+    expect(opened.ok).toBe(true);
+    if (opened.ok) {
+      expect(opened.detailText).toContain('assistant (团团)');
+      expect(opened.detailText).toContain('蓝色毛线球真好玩');
+      expect(opened.detailText).not.toContain('私域内容不公开');
+    }
+    shared.group!.memberIds = ['cat'];
+    expect(actions.openMemorySource!('pets', ['c'], 1000, 'conv-1').ok).toBe(false);
+    shared.group!.memberIds = ['pharos', 'cat'];
+    shared.group!.memoryRecallEnabled = false;
+    expect(actions.openMemorySource!('pets', ['c'], 1000, 'conv-1').ok).toBe(false);
+  });
+
   it('writes low-risk memory items immediately', () => {
     const { actions, addRuntimeToolMessage } = createMemoryActions();
 

@@ -229,6 +229,7 @@ export type ChatActionStoreBindings = {
 export type ChatReplyStoreBindings = {
   chat: {
     conversations: Conversation[];
+    getMemoryRecallConversations?: () => Conversation[];
     pendingWorkspaceProposals: PendingWorkspaceProposalRecord[];
     findConversation: (
       conversationId: string
@@ -325,6 +326,7 @@ export type ChatReplyStoreBindings = {
 export type ChatToolStoreBindings = {
   chat: {
     conversations: Conversation[];
+    getMemoryRecallConversations?: () => Conversation[];
     pendingWorkspaceProposals: PendingWorkspaceProposalRecord[];
     ensureConversationWritable: (conversationId: string) => Promise<WritableConversationBody | null>;
     addMessage: (target: WritableConversationBody, message: ChatMessage) => void;
