@@ -2,16 +2,13 @@ package com.alyssa.polaris;
 
 import android.content.Context;
 import com.nimbusds.jwt.JWTClaimsSet;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 /** The only owner of OAuth records. Nothing in this class returns tokens to the WebView. */
 final class ChatGptSession {
@@ -57,45 +54,12 @@ final class ChatGptSession {
         HttpResult(int status, String body) { this.status = status; this.body = body; }
     }
 
-    static HttpURLConnection connection(String endpoint, String method) throws Exception {
-        URL url = new URL(endpoint);
-        if (!"https".equals(url.getProtocol()) || url.getUserInfo() != null || (url.getPort() != -1 && url.getPort() != 443)
-            || !("auth.openai.com".equals(url.getHost()) || "api.openai.com".equals(url.getHost()))) {
-            throw new Exception("订阅连接地址不正确。");
-        }
-        HttpURLConnection http = (HttpURLConnection) url.openConnection();
-        http.setInstanceFollowRedirects(false);
-        http.setRequestMethod(method);
-        http.setConnectTimeout(20000);
-        http.setReadTimeout(45000);
-        return http;
-    }
-
     static HttpResult request(String endpoint, String method, String body, String bearer) throws Exception {
-        HttpURLConnection http = connection(endpoint, method);
-        try {
-            if (bearer != null) http.setRequestProperty("Authorization", "Bearer " + bearer);
-            http.setRequestProperty("Accept", "application/json");
-            if (body != null) {
-                http.setDoOutput(true);
-                http.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-                byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-                http.setFixedLengthStreamingMode(bytes.length);
-                try (OutputStream output = http.getOutputStream()) { output.write(bytes); }
-            }
-            int status = http.getResponseCode();
-            InputStream input = status >= 400 ? http.getErrorStream() : http.getInputStream();
-            if (input == null) return new HttpResult(status, "");
-            try (InputStream stream = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                byte[] buffer = new byte[4096];
-                int n;
-                while ((n = stream.read(buffer)) != -1) {
-                    if (output.size() + n > 1024 * 1024) throw new Exception("授权服务返回的数据过大。");
-                    output.write(buffer, 0, n);
-                }
-                return new HttpResult(status, output.toString("UTF-8"));
-            }
-        } finally { http.disconnect(); }
+        try (ChatGptHttpTransport.Exchange exchange = ChatGptHttpTransport.formCall(endpoint, method, body, bearer);
+            Response response = exchange.call.execute()) {
+            ResponseBody payload = response.body();
+            return new HttpResult(response.code(), payload == null ? "" : ChatGptHttpTransport.boundedText(payload.byteStream()));
+        }
     }
 
     synchronized String hostId() throws Exception { return store.hostId(); }
