@@ -55,6 +55,27 @@ describe('subscription transport isolation', () => {
     await expect(executeBuiltRequest({ api, request: request(), onProgress: progress })).rejects.toThrow('连接中断');
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({ content: '部分回复' }));
   });
+  it('preserves a classified native connection failure without retrying or switching routes', async () => {
+    const message = 'ChatGPT 在建立连接时失败：安全连接未能完成。本地聊天仍保留。（CGP-TLS-CONNECT）';
+    mocks.start.mockRejectedValueOnce(new Error(message));
+    await expect(executeBuiltRequest({ api, request: request() })).rejects.toThrow(message);
+    expect(mocks.start).toHaveBeenCalledOnce();
+    expect(mocks.genericStart).not.toHaveBeenCalled();
+    expect(mocks.remove).toHaveBeenCalledOnce();
+  });
+  it('keeps partial text and a classified stream failure without silently replaying a request', async () => {
+    const message = 'ChatGPT 在接收回复时失败：网络连接中断。本地聊天仍保留。（CGP-INTERRUPTED-STREAM）';
+    mocks.start.mockImplementationOnce(async ({ requestId }) => {
+      chunk(requestId, 'data: {"type":"response.output_text.delta","delta":"已收到的部分"}\n\n');
+      mocks.listener?.({ requestId, type: 'error', message });
+      return { status: 200, contentType: 'text/event-stream' };
+    });
+    const progress = vi.fn();
+    await expect(executeBuiltRequest({ api, request: request(), onProgress: progress })).rejects.toThrow(message);
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ content: '已收到的部分' }));
+    expect(mocks.start).toHaveBeenCalledOnce();
+    expect(mocks.genericStart).not.toHaveBeenCalled();
+  });
   it.each(['web', 'missing-bridge', 'forced-relay'])('never falls through to fetch or API-key transport: %s', async mode => {
     const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
     mocks.native = mode !== 'web'; mocks.available = mode !== 'missing-bridge';

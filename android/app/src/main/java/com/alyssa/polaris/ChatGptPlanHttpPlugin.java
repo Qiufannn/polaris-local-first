@@ -57,23 +57,31 @@ public class ChatGptPlanHttpPlugin extends Plugin {
         void cancel() { cancelled = true; if (http != null) http.disconnect(); }
 
         @Override public void run() {
+            ChatGptConnectionFailure.Stage stage = ChatGptConnectionFailure.Stage.PREPARE;
             try {
                 ChatGptSession session = ChatGptSession.get(getContext());
                 long generation = session.generation();
                 byte[] bytes = ChatGptOAuth.planBody(new JSONObject(body)).toString().getBytes(StandardCharsets.UTF_8);
+                stage = ChatGptConnectionFailure.Stage.AUTH;
                 String credential = session.access(false, null);
                 for (int attempt = 0; attempt < 2; attempt++) {
                     if (cancelled || !session.current(generation)) throw new Exception("ChatGPT 账号已切换，请重新发送。");
+                    stage = ChatGptConnectionFailure.Stage.CONNECT;
                     http = ChatGptSession.connection(ChatGptOAuth.RESOURCE + "/responses", "POST");
                     http.setReadTimeout(300000);
                     http.setRequestProperty("Authorization", "Bearer " + credential);
                     http.setRequestProperty("Content-Type", "application/json");
                     http.setRequestProperty("Accept", "text/event-stream");
                     http.setDoOutput(true); http.setFixedLengthStreamingMode(bytes.length);
-                    try (OutputStream output = http.getOutputStream()) { output.write(bytes); }
+                    try (OutputStream output = http.getOutputStream()) {
+                        stage = ChatGptConnectionFailure.Stage.SEND;
+                        output.write(bytes);
+                    }
+                    stage = ChatGptConnectionFailure.Stage.WAIT;
                     int status = http.getResponseCode();
                     if (status == 401 && attempt == 0) {
                         http.disconnect();
+                        stage = ChatGptConnectionFailure.Stage.AUTH;
                         credential = session.access(true, credential);
                         continue;
                     }
@@ -83,6 +91,7 @@ public class ChatGptPlanHttpPlugin extends Plugin {
                         throw new Exception("ChatGPT 订阅服务暂时不可用，请稍后重试（HTTP " + status + "）。");
                     }
                     String contentType = http.getContentType();
+                    stage = ChatGptConnectionFailure.Stage.RESPONSE;
                     if (!ChatGptPlanResponse.hasEventStreamType(contentType)) http.setReadTimeout(20000);
                     try (InputStream raw = http.getInputStream()) {
                         InputStream input = ChatGptPlanResponse.stream(raw, contentType, status);
@@ -92,6 +101,7 @@ public class ChatGptPlanHttpPlugin extends Plugin {
                         call.resolve(new JSObject().put("status", status).put("contentType", "text/event-stream"));
                         byte[] buffer = new byte[16384];
                         int count;
+                        stage = ChatGptConnectionFailure.Stage.STREAM;
                         while (!cancelled && (count = input.read(buffer)) != -1) {
                             if (!session.current(generation)) throw new Exception("ChatGPT 账号已切换，本次回复已停止。");
                             if (count > 0) notifyListeners("event", event("chunk")
@@ -103,7 +113,7 @@ public class ChatGptPlanHttpPlugin extends Plugin {
                 }
             } catch (Exception error) {
                 if (!cancelled) {
-                    String message = ChatGptAuthPlugin.safeMessage(error);
+                    String message = ChatGptConnectionFailure.message(error, stage);
                     if (resolved) notifyListeners("event", event("error").put("message", message));
                     else call.reject(message);
                 } else if (!resolved) call.reject("订阅请求已取消。");

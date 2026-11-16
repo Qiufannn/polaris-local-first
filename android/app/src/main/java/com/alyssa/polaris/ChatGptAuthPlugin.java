@@ -27,9 +27,7 @@ public class ChatGptAuthPlugin extends Plugin {
     }
 
     static String safeMessage(Exception error) {
-        String text = error.getMessage();
-        if (text != null && text.length() < 180 && text.matches("^(登录|授权|身份|安全|返回|请选择|尚未|暂时|订阅|无法|注册|ChatGPT).*")) return text;
-        return "ChatGPT 连接失败，请检查网络后重试；本地聊天仍保留。";
+        return ChatGptConnectionFailure.message(error, ChatGptConnectionFailure.Stage.GENERAL);
     }
 
     protected ChatGptSession session(PluginCall call) throws Exception { return ChatGptSession.get(getContext()); }
