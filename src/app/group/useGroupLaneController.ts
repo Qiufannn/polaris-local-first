@@ -135,6 +135,7 @@ export function useGroupLaneController({
 
     const runWhisperReply = createChatReplyRunner({
       ui: {
+        setCommandStatus: ui.setCommandStatus,
         themeToolModeSwitchRef: ui.themeToolModeSwitchRef,
         getConversationGenerationControls: ui.getConversationGenerationControls,
         toolPromptPreferences: buildGroupToolPreferences(store.runtime.toolPromptPreferences, GROUP_LANE_TOOL_SETTINGS, {

@@ -402,6 +402,7 @@ export function useChatProviderValue({
   const themeSession = useThemeSessionActions();
   const runReply = createChatReplyRunner({
     ui: {
+      setCommandStatus: ui.setCommandStatus,
       themeToolModeSwitchRef: ui.themeToolModeSwitchRef,
       getConversationGenerationControls: ui.getConversationGenerationControls,
       toolPromptPreferences: store.runtime.toolPromptPreferences,

@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createChatReplyRunner } from './chatReplyFlow';
+import { ProviderRequestCooldown } from './providerRequestCooldown';
 import { DEFAULT_APP_CUSTOMIZATION } from '../../stores/runtimeStoreCustomization';
 import type { ChatMessage } from '../../types/domain';
 import type { WritableConversationBody } from '../../stores/chatStore';
 
-const requestReplyMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const requestReplyMock = vi.hoisted(() => vi.fn<(...args: any[]) => Promise<{
+  status: 'completed' | 'failed' | 'aborted'; rateLimited?: boolean
+}>>(async () => ({ status: 'completed' })));
 const readConversationMessagesMock = vi.hoisted(() => vi.fn<(conversationId: string) => Promise<unknown>>(async () => []));
 
 vi.mock('./chatReplyRuntime', () => ({
@@ -33,12 +36,15 @@ function writableConversation(conversationId: string, messages: ChatMessage[] = 
 
 describe('createChatReplyRunner', () => {
   beforeEach(() => {
-    requestReplyMock.mockClear();
+    requestReplyMock.mockReset();
+    requestReplyMock.mockResolvedValue({ status: 'completed' });
     readConversationMessagesMock.mockReset();
     readConversationMessagesMock.mockResolvedValue([]);
   });
 
   it('builds request snapshots from the latest injected store readers', async () => {
+    const cooldown = new ProviderRequestCooldown(() => 0);
+    const setCommandStatus = vi.fn();
     const ensureConversationTask = vi.fn(() => null);
     const liveMessages: ChatMessage[] = [{
       id: 'live-user-1',
@@ -60,7 +66,9 @@ describe('createChatReplyRunner', () => {
     };
     const getConversationGenerationControls = vi.fn(() => generationControls);
     const runner = createChatReplyRunner({
+      cooldown,
       ui: {
+        setCommandStatus,
         themeToolModeSwitchRef: { current: null },
         getConversationGenerationControls,
         toolPromptPreferences: {} as never,
@@ -289,6 +297,12 @@ describe('createChatReplyRunner', () => {
         ]
       })
     }));
+    requestReplyMock.mockResolvedValueOnce({ status: 'failed', rateLimited: true });
+    await runner({ conversationId: 'conversation-1', collaboratorId: 'pharos', messages: [] });
+    const blocked = await runner({ conversationId: 'conversation-1', collaboratorId: 'pharos', messages: [] });
+    expect(requestReplyMock).toHaveBeenCalledTimes(2);
+    expect(blocked).toMatchObject({ status: 'failed', retryAfterMs: 60_000 });
+    expect(setCommandStatus).toHaveBeenCalledWith(expect.stringContaining('本次没有发送新请求'), true);
   });
 
   it('recalls a member group through the memory catalog without adding it to single-chat navigation', async () => {

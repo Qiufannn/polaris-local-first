@@ -14,6 +14,7 @@ import {
 import { recordChatSendPerformanceMark } from './chatSendPerformanceTrace';
 import { selectChatConversations } from './liveConversationCatalog';
 import { selectMemoryRecallConversations } from '../../engines/memoryConversationScope';
+import { providerRequestCooldown, type ProviderRequestCooldown } from './providerRequestCooldown';
 
 type CreateChatReplyRunnerArgs = {
   ui: ChatUiReplyControllerState;
@@ -22,6 +23,7 @@ type CreateChatReplyRunnerArgs = {
   toolActions: Pick<ToolActions, 'submitAssistantToolActions'>;
   createToolActions?: (derived: ChatDerivedStatePort) => Pick<ToolActions, 'submitAssistantToolActions'>;
   includeGroupConversations?: boolean;
+  cooldown?: ProviderRequestCooldown;
   disableTaskState?: boolean;
   resolveGenerationKey?: (params: {
     conversationId: string;
@@ -54,6 +56,7 @@ export function createChatReplyRunner({
   toolActions,
   createToolActions,
   includeGroupConversations = false,
+  cooldown = providerRequestCooldown,
   disableTaskState = false,
   resolveGenerationKey,
   overrideReplyChatPort,
@@ -256,7 +259,7 @@ export function createChatReplyRunner({
           `feedback ${initialRequestSnapshot.runtimeFeedbackEvents.length}`
         ]
       });
-      result = await requestReply({
+      result = await cooldown.run(initialRequestSnapshot.api.id, () => requestReply({
         ui: ui.getConversationGenerationControls(
           resolveGenerationKey?.({
             conversationId: params.conversationId,
@@ -271,6 +274,8 @@ export function createChatReplyRunner({
         writableConversation,
         ...params,
         messages: requestMessages
+      }), (remainingMs) => {
+        ui.setCommandStatus?.(`「${initialRequestSnapshot.api.name.slice(0, 60)}」刚返回 429，本地暂缓请求，还需 ${Math.ceil(remainingMs / 1000)} 秒；本次没有发送新请求。`, true);
       });
     } finally {
       const switchHint = ui.themeToolModeSwitchRef.current;

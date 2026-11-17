@@ -81,6 +81,7 @@ export function useAppTriggerRuntime({ chatRuntime, startupReady }: UseAppTrigge
   );
   const runReply = createChatReplyRunner({
     ui: {
+      setCommandStatus: chatRuntime.setCommandStatus,
       themeToolModeSwitchRef: chatRuntime.themeToolModeSwitchRef,
       getConversationGenerationControls: chatRuntime.getConversationGenerationControls,
       toolPromptPreferences: store.runtime.toolPromptPreferences,

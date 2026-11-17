@@ -114,6 +114,7 @@ export function useGroupWorldController({ ui }: UseGroupWorldControllerArgs) {
 
   const runGroupReply = useMemo(() => createChatReplyRunner({
     ui: {
+      setCommandStatus: ui.setCommandStatus,
       themeToolModeSwitchRef: ui.themeToolModeSwitchRef,
       getConversationGenerationControls: ui.getConversationGenerationControls,
       toolPromptPreferences: buildGroupToolPreferences(store.runtime.toolPromptPreferences, groupToolSettings, {

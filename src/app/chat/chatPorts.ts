@@ -75,6 +75,7 @@ export type ChatUiReplyControllerState = Omit<
   keyof ChatUiGenerationControls
 > & {
   getConversationGenerationControls: (conversationId: string) => ChatUiGenerationControls;
+  setCommandStatus?: (text: string, isError?: boolean) => void;
 };
 
 export type ChatUiActionState = {

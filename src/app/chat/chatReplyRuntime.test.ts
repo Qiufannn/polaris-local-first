@@ -146,6 +146,40 @@ function buildExecutedStartTaskOutcome(action: Extract<ToolActionRunOutcome['act
 }
 
 describe('requestReply task activation', () => {
+  it.each([429, 401])('reports HTTP %s failures without automatic model followups and marks only 429 for backoff', async (status) => {
+    vi.stubGlobal('window', {
+      setTimeout, clearTimeout,
+      requestAnimationFrame: (callback: FrameRequestCallback) => setTimeout(() => callback(0), 0),
+      cancelAnimationFrame: (id: number) => clearTimeout(id)
+    });
+    requestCollaboratorReplyMock.mockReset();
+    requestCollaboratorReplyMock.mockRejectedValueOnce(new Error(`API ${status}: Resource exhausted.`));
+    const messages: ChatMessage[] = [{ id: 'u-limit', role: 'user', content: '你好', timestamp: 1, origin: 'user-input' }];
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const result = await requestReply({
+        ui: { abortControllerRef: { current: null }, setSending: vi.fn(), setStreaming: vi.fn(), streamingLifecycleReleaseRef: { current: null } },
+        chat: {
+          addMessage: (_target, message) => { messages.push(message); },
+          findConversation: () => ({ id: 'conversation-1', title: '测试', collaboratorId: 'pharos' }),
+          findConversationMessage: (_id, messageId) => messages.find((m) => m.id === messageId),
+          getConversationMessages: () => messages,
+          updateMessage: (_target, messageId, patch) => {
+            const message = messages.find((m) => m.id === messageId);
+            if (message) Object.assign(message, patch);
+          },
+          replaceConversationMessages: vi.fn(), insertMessageBefore: vi.fn(),
+          appendRuntimeFeedbackEvent: vi.fn(), getConversationTask: () => null, setConversationTask: vi.fn()
+        },
+        executeToolActions: vi.fn(), conversationId: 'conversation-1', collaboratorId: 'pharos', messages,
+        writableConversation: buildWritableConversation(messages), requestSnapshot: buildRequestSnapshot(null)
+      });
+      expect(result).toEqual(status === 429 ? { status: 'failed', rateLimited: true } : { status: 'failed' });
+      expect(requestCollaboratorReplyMock).toHaveBeenCalledTimes(1);
+      expect(messages[messages.length - 1]?.content).toContain(`API ${status}`);
+    } finally { log.mockRestore(); }
+  });
+
   it('auto-retries a tool preparation failure before showing a failed tool event', async () => {
     vi.stubGlobal('window', {
       setTimeout,

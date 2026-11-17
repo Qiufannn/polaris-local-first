@@ -134,6 +134,8 @@ const INITIAL_CHAT_REPLY_CONTINUATION_STATE: ChatReplyContinuationState = {
 
 export type ChatReplyRunResult = {
   status: 'completed' | 'aborted' | 'failed';
+  rateLimited?: boolean;
+  retryAfterMs?: number;
 };
 
 export type RequestReplyChatPort = RequestReplyArgs['chat'];
@@ -1024,7 +1026,7 @@ async function requestReplyRound({
       finishChatSendPerformanceTrace(conversationId, 'failed', {
         extra: ['partial reply kept']
       });
-      return { status: 'failed' };
+      return { status: 'failed', ...(/^API\s+429\b/i.test(text) ? { rateLimited: true } : {}) };
     }
 
     const failureMessage = normalized.hintMessage && normalized.hintMessage !== normalized.rawMessage
@@ -1061,7 +1063,7 @@ async function requestReplyRound({
     finishChatSendPerformanceTrace(conversationId, 'failed', {
       extra: ['request failed']
     });
-    return { status: 'failed' };
+    return { status: 'failed', ...(/^API\s+429\b/i.test(text) ? { rateLimited: true } : {}) };
   } finally {
     try {
       await persistChatReplyBoundary(chat.persistToDb, 'after-reply');
