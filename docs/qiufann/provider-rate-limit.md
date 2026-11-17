@@ -18,3 +18,13 @@
 本地用假数据对比「供应商默认模型 + 空覆盖」与「另一个供应商默认模型 + 相同有效模型覆盖」的真实请求构造：当供应商其他字段与有效模型 ID 完全相同时，组装结果一致。该证据不能证明手机上两份配置和服务器路由也完全相同。
 
 手机仍需观察一次实际 429 后，在暂缓期内是否显示本地提示、供应商端是否没有新增相应请求；本地和 CI 测试不能代替服务器日志或真实手机验收。
+
+## 第 30 版交付回执
+
+- [Signed ZIP](https://github.com/Qiufannn/polaris-local-first/actions/runs/44092929140/artifacts/14331839974)，下载后解压 `polaris.apk` 同签名覆盖安装。源码 `cb80865dfef59f05109abd0ff65a21dcf4d07c8b`，[CI #30](https://github.com/Qiufannn/polaris-local-first/actions/runs/44092929140) 四个作业成功；本地完整 507 文件 / 3248 项测试通过，原生 XML 独立核对 116 项、0 failures / errors / skipped。
+- Signed ZIP SHA256 `8c88189314f13b6f9aa0109a8bf744f931417a64b1f4099ebc9a3120a4605b97`，与 GitHub digest 一致；APK SHA256 `1ab3fd56d3ed488f3095fb1cb6e4e1bcaf149d592c3774742ef9d1a677f32566`，16,363,769 bytes，同包名 `com.alyssa.polaris`，versionCode 30。
+- 独立验签为原固定个人证书 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5`，v3 签名；signed / unsigned 全部 payload 条目逐字节一致，只有三个签名元数据附加项。
+- 与第 29 版比较，101 张内置表情、原小屋请求/下载桥及原生 DEX 未变；APK 的 Web 包中已确认含新的暂缓提示与限流调度逻辑。没有改动实际人设、模型绑定或群成员。
+- 暂缓剩余时间、是否无新增服务器请求与第三方 429 原因仍需手机/供应商验收。测试不调用秋凡的付费 API；此回执提交仅更新文档并跳过 CI，不改变上述 APK 源码。
+
+逐风仅用于普通群聊时，可在该角色「请求 → MCP」关闭「跟随所有 MCP」，将单独 MCP 列表留空，以减少外部工具说明。这不改动晏昼的 MCP，也不关闭原生群聊记忆召回；减量不保证消除供应商限制。
