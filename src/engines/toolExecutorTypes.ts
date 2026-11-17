@@ -153,7 +153,7 @@ export type ToolContext = {
     sourceConversationId: string,
     sourceMessageIds?: string[],
     maxChars?: number
-  ) => ToolExecutionResult;
+  ) => ToolExecutionResult | Promise<ToolExecutionResult>;
   readPolarisKnowledge: (topic?: string) => ToolResult<{
     summary: string;
     detailText: string;

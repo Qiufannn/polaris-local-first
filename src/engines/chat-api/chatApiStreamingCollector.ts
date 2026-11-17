@@ -75,7 +75,12 @@ function flushStreamingPayload(params: {
       throw new Error(providerErrorMessage);
     }
     updated = applyProviderRuntimeStreamEvents(collected, events);
-    if (!updated) {
+    // A known Responses event may intentionally yield no changes (for example,
+    // output_item.done after text deltas). Replaying it through the legacy
+    // appender would append the same completed message a second time.
+    const isResponsesEvent = typeof (parsed as { type?: unknown })?.type === 'string'
+      && (parsed as { type: string }).type.startsWith('response.');
+    if (!updated && !isResponsesEvent) {
       appendChunk(collected, parsed);
       updated = true;
     }

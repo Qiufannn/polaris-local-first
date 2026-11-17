@@ -159,6 +159,7 @@ export function openConversationMemorySource(args: {
   sourceConversationId: string;
   sourceMessageIds?: string[];
   maxChars?: number;
+  fromEnd?: boolean;
 }): MemorySourceOpenResult | null {
   const conversationId = args.sourceConversationId.trim();
   const conversation = args.conversations.find((candidate) => candidate.id === conversationId) ?? null;
@@ -173,7 +174,7 @@ export function openConversationMemorySource(args: {
   let usedChars = 0;
   let truncated = false;
 
-  for (const message of sourceMessages) {
+  for (const message of args.fromEnd ? [...sourceMessages].reverse() : sourceMessages) {
     const content = message.content.trim();
     if (!content) continue;
     const remaining = maxChars - usedChars;
@@ -181,15 +182,19 @@ export function openConversationMemorySource(args: {
       truncated = true;
       break;
     }
-    const nextContent = content.length > remaining ? content.slice(0, remaining) : content;
-    messages.push({
+    const nextContent = content.length > remaining
+      ? args.fromEnd ? content.slice(-remaining) : content.slice(0, remaining)
+      : content;
+    const entry = {
       id: message.id,
       role: message.role,
       content: nextContent,
       timestamp: message.timestamp,
       ...(message.assistantName ? { assistantName: message.assistantName } : {}),
       ...(message.speakerCollaboratorId ? { speakerCollaboratorId: message.speakerCollaboratorId } : {})
-    });
+    };
+    if (args.fromEnd) messages.unshift(entry);
+    else messages.push(entry);
     usedChars += nextContent.length;
     if (nextContent.length < content.length) {
       truncated = true;

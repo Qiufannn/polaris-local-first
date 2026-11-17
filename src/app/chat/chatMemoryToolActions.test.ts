@@ -73,7 +73,7 @@ function createPersona(): Persona {
   } as unknown as Persona;
 }
 
-function createMemoryActions(conversations: Conversation[] = []) {
+function createMemoryActions(conversations: Conversation[] = [], loadMessages?: (id: string) => Promise<Conversation | null>) {
   const persona = createPersona();
   const addRuntimeToolMessage = vi.fn();
   const setCommandStatus = vi.fn();
@@ -85,6 +85,7 @@ function createMemoryActions(conversations: Conversation[] = []) {
       chat: {
         conversations: [],
         getMemoryRecallConversations: () => conversations,
+        ensureConversationMessagesLoaded: loadMessages,
         findConversation: vi.fn(() => ({ id: 'conv-1', collaboratorId: 'pharos' })),
         updateMessage
       } as never,
@@ -126,7 +127,7 @@ function memoryPreviewMessage(): ChatMessage {
 }
 
 describe('createChatMemoryActions', () => {
-  it('searches and opens the member group public messages through the recall catalog, preserving pet names', () => {
+  it('searches and opens the member group public messages through the recall catalog, preserving pet names', async () => {
     const shared = {
       id: 'pets', title: '小猫小狗', kind: 'group', collaboratorId: null, updatedAt: 5,
       group: {
@@ -142,7 +143,7 @@ describe('createChatMemoryActions', () => {
     const searched = actions.searchCollaboratorMemory!('蓝色毛线球', 'source', 3, 'conv-1');
     expect(searched.ok).toBe(true);
     if (searched.ok) expect(searched.detailText).toContain('sourceConversationId=pets');
-    const opened = actions.openMemorySource!('pets', ['c'], 1000, 'conv-1');
+    const opened = await actions.openMemorySource!('pets', ['c'], 1000, 'conv-1');
     expect(opened.ok).toBe(true);
     if (opened.ok) {
       expect(opened.detailText).toContain('assistant (团团)');
@@ -150,10 +151,52 @@ describe('createChatMemoryActions', () => {
       expect(opened.detailText).not.toContain('私域内容不公开');
     }
     shared.group!.memberIds = ['cat'];
-    expect(actions.openMemorySource!('pets', ['c'], 1000, 'conv-1').ok).toBe(false);
+    expect((await actions.openMemorySource!('pets', ['c'], 1000, 'conv-1')).ok).toBe(false);
     shared.group!.memberIds = ['pharos', 'cat'];
     shared.group!.memoryRecallEnabled = false;
-    expect(actions.openMemorySource!('pets', ['c'], 1000, 'conv-1').ok).toBe(false);
+    expect((await actions.openMemorySource!('pets', ['c'], 1000, 'conv-1')).ok).toBe(false);
+  });
+
+  it('discovers an unloaded group without a model call, then lazily reads only its latest public messages', async () => {
+    const shared = {
+      id: 'pets', title: '猫狗小窝', kind: 'group', collaboratorId: null, updatedAt: 5,
+      group: { memberIds: ['pharos', 'cat'], memoryRecallEnabled: true, privateLanes: { cat: [{ content: '私域秘密' }] } },
+      messages: []
+    } as unknown as Conversation;
+    const messages = Array.from({ length: 35 }, (_,i) => ({ id: `m${i}`, role: 'assistant' as const,
+      assistantName: '团团', speakerCollaboratorId: 'cat', content: `猫猫最新消息编号${i}。`, timestamp: i + 1 }));
+    const load = vi.fn(async () => ({ ...shared, messages }));
+    const { actions } = createMemoryActions([shared], load);
+    const searched = actions.searchCollaboratorMemory!('群里最新说什么', 'source', 3, 'conv-1');
+    expect(searched.ok && searched.detailText).toContain('sourceConversationId=pets');
+    expect(load).not.toHaveBeenCalled();
+    const opened = await actions.openMemorySource!('pets', undefined, undefined, 'conv-1');
+    expect(load).toHaveBeenCalledExactlyOnceWith('pets');
+    expect(opened.ok).toBe(true);
+    if (opened.ok) {
+      expect(opened.detailText).toContain('猫猫最新消息编号34');
+      expect(opened.detailText).not.toContain('猫猫最新消息编号0');
+      expect(opened.detailText).not.toContain('私域秘密');
+      expect(opened.detailText).toContain('assistant (团团)');
+      expect(opened.detailText!.match(/messageId=/g)).toHaveLength(20);
+    }
+    shared.group!.memberIds = ['cat'];
+    load.mockClear();
+    expect((await actions.openMemorySource!('pets', undefined, undefined, 'conv-1')).ok).toBe(false);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('rechecks group recall access after loading and does not fall back to stale text on failure', async () => {
+    const shared = {
+      id: 'pets', title: '猫狗小窝', kind: 'group', collaboratorId: null, updatedAt: 5,
+      group: { memberIds: ['pharos'], memoryRecallEnabled: true }, messages: []
+    } as unknown as Conversation;
+    const load = vi.fn(async () => {
+      shared.group!.memoryRecallEnabled = false;
+      return { ...shared, messages: [{ id: 'secret', role: 'user' as const, content: '不应返回', timestamp: 1 }] };
+    });
+    const { actions } = createMemoryActions([shared], load);
+    expect(await actions.openMemorySource!('pets', undefined, undefined, 'conv-1')).toEqual({ ok: false, error: '该对话当前未开放记忆召回。' });
   });
 
   it('writes low-risk memory items immediately', () => {

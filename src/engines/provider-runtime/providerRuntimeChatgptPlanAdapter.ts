@@ -7,6 +7,7 @@ import { resolveProviderCapability, canonicalProviderCapabilitiesFromContract } 
 import type { ProviderRuntimeRequestAdapter, ProviderRuntimeRequestInput } from './providerRuntimeRequestTypes';
 import type { CanonicalProviderStreamEvent, ProviderHttpRequest } from './providerRuntimeTypes';
 import { parseOpenAiResponsesStreamEvents } from './providerRuntimeStreamEvents';
+import { extractStructuredText } from './providerRuntimeResponseText';
 
 export function buildChatgptPlanRequest({ api, context, advanced }: ProviderRuntimeRequestInput): ProviderHttpRequest {
   const model = resolveProviderEffectiveModel(api, advanced?.modelOverride).trim();
@@ -52,6 +53,20 @@ export function createChatgptPlanStreamParser() {
   let completed = false;
   let terminal = false;
   const callIds = new Map<string, string>();
+  const textByOutput = new Map<string, Map<number, string>>();
+  const outputText = () => [...textByOutput.values()].map((parts) => [...parts.entries()]
+    .sort(([left], [right]) => left - right).map(([, text]) => text).join('')).join('');
+  const textKey = (value: Record<string, any>) => {
+    const key = typeof value.output_index === 'number' ? `index:${value.output_index}`
+      : value.item_id || value.item?.id || 'default';
+    // Some compatible streams omit ids on deltas but provide them on the final item.
+    if (key !== 'default' && textByOutput.size === 1 && textByOutput.has('default')) {
+      const previous = textByOutput.get('default')!;
+      textByOutput.delete('default');
+      textByOutput.set(key, previous);
+    }
+    return key;
+  };
   return {
     parse(payload: unknown): CanonicalProviderStreamEvent[] {
       if (!payload || typeof payload !== 'object' || terminal) return [];
@@ -72,6 +87,24 @@ export function createChatgptPlanStreamParser() {
       const events = parseOpenAiResponsesStreamEvents(normalized).map(event =>
         event.type === 'tool_call.start' || event.type === 'tool_call.done'
           ? { ...event, name: event.name.replace(/^polaris\./, '') } : event);
+      if (type === 'response.output_text.delta' && typeof value.delta === 'string') {
+        const key = textKey(value);
+        const parts = textByOutput.get(key) ?? new Map<number, string>();
+        const partIndex = typeof value.content_index === 'number' ? value.content_index : 0;
+        parts.set(partIndex, (parts.get(partIndex) ?? '') + value.delta);
+        textByOutput.set(key, parts);
+      }
+      if (type === 'response.output_text.done' || (type === 'response.output_item.done' && value.item?.type === 'message')) {
+        const text = type === 'response.output_text.done' ? value.text : extractStructuredText(value.item.content);
+        if (typeof text === 'string' && text.length) {
+          const key = textKey(value);
+          const parts = type === 'response.output_item.done' ? new Map<number, string>() : textByOutput.get(key) ?? new Map<number, string>();
+          const partIndex = type === 'response.output_item.done' ? 0 : typeof value.content_index === 'number' ? value.content_index : 0;
+          parts.set(partIndex, text);
+          textByOutput.set(key, parts);
+          events.push({ type: 'text.snapshot', text: outputText() });
+        }
+      }
       if (type === 'response.completed') { completed = true; terminal = true; }
       return events;
     },

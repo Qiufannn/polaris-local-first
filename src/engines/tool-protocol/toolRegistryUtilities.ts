@@ -375,10 +375,10 @@ export const UTILITY_TOOL_DEFINITION_MAP = {
     name: 'searchMemory',
     group: 'memoryRecall',
     resultReplayMode: 'full-detail',
-    brief: '搜索过往摘要和原文锚点',
+    brief: '搜索单聊记忆与可读群聊目录',
     schema: {
       name: 'searchMemory',
-      description: '按查询搜索当前协作者的跨对话摘要和语义原文锚点。它只返回候选、摘要和 source ids；需要确认原文时再调用 openMemorySource。',
+      description: '搜索当前协作者的单聊记忆，以及本人所在且开启召回的本机群聊公开消息。返回候选和最近可读群聊目录；再用 openMemorySource 核对原文。这是本机原生工具，无需群聊 MCP。',
       parameters: objectParameters({
         query: stringProperty('要查找的记忆线索、人物、主题、说法或事件。'),
         mode: stringProperty('可选。auto 同时搜索摘要和原文；summary 只搜摘要；source 只搜原文锚点。', {
@@ -394,7 +394,8 @@ export const UTILITY_TOOL_DEFINITION_MAP = {
       '- 当你觉得需要确认“以前聊过什么”、用户提到旧事/旧人/旧项目，或当前语义像是在接旧线索时，用它主动找记忆。',
       '- 当你不确定用户在说什么、但怀疑你们过去聊过的内容能帮你理解指代或背景时，也可以主动搜索。',
       '- searchMemory 只返回候选和 sourceConversationId/sourceMessageIds；不要把候选当作已读原文。',
-      '- 如果候选会影响回答判断，继续用 openMemorySource 打开原文。'
+      '- 如果候选会影响回答判断，继续用 openMemorySource 打开原文。',
+      '- 用户询问群里聊了什么或核对最新群消息时，先用此原生工具查群聊目录，再打开原文；不要仅因 MCP 列表没有群聊就判断无法读取。'
     ]
   },
   openMemorySource: {
@@ -404,10 +405,10 @@ export const UTILITY_TOOL_DEFINITION_MAP = {
     brief: '打开过往记忆原文',
     schema: {
       name: 'openMemorySource',
-      description: '按 searchMemory 返回的 sourceConversationId 和 sourceMessageIds 读取过往对话原文。',
+      description: '读取 searchMemory 候选或群聊目录的本机原文。群聊不填 sourceMessageIds 时读取最新保存的公开消息，最多 20 条、默认 4000 字；不是后台监听或代发。',
       parameters: objectParameters({
-        sourceConversationId: stringProperty('searchMemory 返回的 sourceConversationId。'),
-        sourceMessageIds: stringArrayProperty('可选。searchMemory 返回的 sourceMessageIds；不填则读取这个过往对话里的可读消息。'),
+        sourceConversationId: stringProperty('searchMemory 候选或群聊目录返回的 sourceConversationId。'),
+        sourceMessageIds: stringArrayProperty('可选。searchMemory 返回的 sourceMessageIds；群聊不填时读取最近保存的公开消息。'),
         maxChars: numberProperty('最多读取多少字符。默认 8000。'),
         targetLabel: stringProperty('可选目标说明。')
       }, ['sourceConversationId'])
@@ -416,7 +417,7 @@ export const UTILITY_TOOL_DEFINITION_MAP = {
       '记忆原文动作：',
       '1. openMemorySource：按 source ids 打开过往对话原文。',
       '- 它是 searchMemory 的下一步：先找候选，再按 sourceConversationId + sourceMessageIds 打开原文。',
-      '- 打开后再根据原文回答，不要只复述摘要候选。'
+      '- 打开后再根据原文回答，不要只复述摘要候选；群聊目录也不代表已经读取了消息正文。'
     ]
   },
   readPolarisKnowledge: {

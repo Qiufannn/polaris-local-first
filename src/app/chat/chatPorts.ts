@@ -509,7 +509,7 @@ export type MemoryActions = {
     sourceMessageIds?: string[],
     maxChars?: number,
     conversationId?: string | null
-  ) => { ok: true; summary?: string; detailText?: string } | { ok: false; error: string };
+  ) => Promise<{ ok: true; summary?: string; detailText?: string } | { ok: false; error: string }>;
   maybeHandleWriteMemoryAction: (
     target: WritableConversationBody,
     action: import('../../engines/toolExecutor').ToolAction,

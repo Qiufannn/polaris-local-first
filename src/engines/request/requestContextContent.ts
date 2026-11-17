@@ -289,6 +289,9 @@ export function buildSemanticRecallSegment(candidates?: AssistantSemanticRecallC
           '[跨对话前文片段]',
           '这些是本机旧对话里的片段，作为你们连续性的背景材料，相关时自然吸收，不要机械复述。',
           '它们不是用户本轮说的话，也不是已确认的长期记忆；与当前消息或确认记忆冲突时，以后者为准。',
+          ...(normalized.some((candidate) => candidate.label.startsWith('群聊｜')) ? [
+            '群聊片段来自本机已保存的公开消息。要核对最新内容，使用原生 searchMemory 查群聊目录，再用 openMemorySource 读取；这不依赖额外群聊 MCP，也不表示后台实时监听。'
+          ] : []),
           ...normalized.map((candidate, index) => [
             `${index + 1}. ${candidate.label}（${formatSemanticRecallKind(candidate.kind)}）`,
             candidate.text

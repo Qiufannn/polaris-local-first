@@ -164,12 +164,17 @@ function parseResponsesStreamEvent(payload: Record<string, unknown>): CanonicalP
         model: typeof response?.model === 'string' ? response.model : undefined
       }
     ];
-    const outputText = extractStructuredText(response?.output_text);
+    const messageItems = Array.isArray(response?.output)
+      ? response.output.map(readObject).filter((item) => item?.type === 'message')
+      : [];
+    const outputText = messageItems.map((item) => extractStructuredText(item?.content)).join('')
+      || extractStructuredText(response?.output_text);
     if (outputText) {
       events.push({ type: 'text.snapshot', text: outputText });
     }
     if (Array.isArray(response?.output)) {
-      response.output.forEach((item) => pushResponsesOutputItemEvents(events, item));
+      response.output.filter((item) => readObject(item)?.type !== 'message')
+        .forEach((item) => pushResponsesOutputItemEvents(events, item));
     }
     pushUsage(events, parseOpenAiCompatibleUsage(response?.usage));
     events.push({ type: 'done', finishReason: 'stop' });

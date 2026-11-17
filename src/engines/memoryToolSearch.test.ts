@@ -35,6 +35,19 @@ function summary(seed: Partial<PersonaConversationSummary> & Pick<PersonaConvers
 }
 
 describe('memoryToolSearch', () => {
+  it('reads the latest end of a long source within the character budget and keeps chronological order', () => {
+    const opened = openConversationMemorySource({
+      sourceConversationId: 'old', maxChars: 7, fromEnd: true,
+      conversations: [conversation({ id: 'old', messages: [
+        message('a', 'user', '很早以前不需要的消息', 1),
+        message('b', 'user', '较早消息', 2),
+        message('c', 'assistant', '最新消息', 3)
+      ] })]
+    });
+    expect(opened?.truncated).toBe(true);
+    expect(opened?.messages.map((m) => m.id)).toEqual(['b','c']);
+    expect(opened?.messages.map((m) => m.content).join('')).toBe('早消息最新消息');
+  });
   it('returns summary and source candidates without opening full source text', () => {
     const result = searchCollaboratorMemorySources({
       query: '智齿牙龈肿痛',

@@ -64,6 +64,60 @@ describe('ChatGPT subscription request boundary', () => {
 });
 
 describe('strict subscription SSE terminal handling', () => {
+  it('does not append a completed message again after streamed text, including intermediate progress', () => {
+    const parser = createChatgptPlanStreamParser();
+    const progress = vi.fn();
+    const collector = createStreamingReplyCollector('account-model', progress, parser.parse);
+    const text = '小猫小狗在群里玩毛线球。';
+    for (const event of [
+      { type: 'response.output_text.delta', output_index: 0, item_id: 'msg-a', delta: text },
+      { type: 'response.output_text.done', output_index: 0, item_id: 'msg-a', text },
+      { type: 'response.output_item.done', output_index: 0, item: { id: 'msg-a', type: 'message', content: [{ type: 'output_text', text }] } },
+      { type: 'response.completed', response: { output: [] } }
+    ]) collector.pushTextChunk(`data: ${JSON.stringify(event)}\n\n`, true);
+    expect(collector.finish().content).toBe(text);
+    expect(progress.mock.calls.every(([reply]) => reply.content === text)).toBe(true);
+    expect(() => parser.assertCompleted()).not.toThrow();
+  });
+
+  it('preserves intentional repeated words and separate equal message items', () => {
+    const parser = createChatgptPlanStreamParser();
+    const collector = createStreamingReplyCollector('account-model', undefined, parser.parse);
+    for (const index of [0, 1]) {
+      for (const event of [
+        { type: 'response.output_text.delta', output_index: index, delta: '哈哈' },
+        { type: 'response.output_text.delta', output_index: index, delta: '哈哈' },
+        { type: 'response.output_item.done', output_index: index, item: { type: 'message', content: [{ type: 'output_text', text: '哈哈哈哈' }] } }
+      ]) collector.pushTextChunk(`data: ${JSON.stringify(event)}\n\n`, true);
+    }
+    collector.pushTextChunk(`data: ${JSON.stringify({ type: 'response.completed', response: { output: [] } })}\n\n`, true);
+    expect(collector.finish().content).toBe('哈哈哈哈哈哈哈哈');
+  });
+
+  it('accepts a final text snapshot when a compatible stream omitted the deltas', () => {
+    const parser = createChatgptPlanStreamParser();
+    const collector = createStreamingReplyCollector('account-model', undefined, parser.parse);
+    for (const event of [
+      { type: 'response.output_text.done', text: '完整的单条回复' },
+      { type: 'response.output_item.done', item: { id: 'msg-a', type: 'message', content: [{ type: 'output_text', text: '完整的单条回复' }] } },
+      { type: 'response.completed', response: { output: [] } }
+    ]) collector.pushTextChunk(`data: ${JSON.stringify(event)}\n\n`, true);
+    expect(collector.finish().content).toBe('完整的单条回复');
+  });
+
+  it('keeps multiple text parts within a message when their done snapshots arrive', () => {
+    const parser = createChatgptPlanStreamParser();
+    const collector = createStreamingReplyCollector('account-model', undefined, parser.parse);
+    for (const [index, text] of [[0, '小猫。'], [1, '小狗。']] as const) {
+      for (const event of [
+        { type: 'response.output_text.delta', output_index: 0, content_index: index, delta: text },
+        { type: 'response.output_text.done', output_index: 0, content_index: index, text }
+      ]) collector.pushTextChunk(`data: ${JSON.stringify(event)}\n\n`, true);
+    }
+    collector.pushTextChunk(`data: ${JSON.stringify({ type: 'response.completed', response: { output: [] } })}\n\n`, true);
+    expect(collector.finish().content).toBe('小猫。小狗。');
+  });
+
   it('requires response.completed even after partial text and a DONE marker', () => {
     const parser = createChatgptPlanStreamParser();
     const progress = vi.fn();

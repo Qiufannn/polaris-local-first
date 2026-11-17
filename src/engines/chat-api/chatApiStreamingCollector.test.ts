@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createStreamingReplyCollector } from './chatApiStreamingCollector';
 
 describe('chatApiStreamingCollector', () => {
@@ -278,6 +278,29 @@ describe('chatApiStreamingCollector', () => {
     );
 
     expect(collector.finish().content).toBe('补全正文。');
+  });
+
+  it('does not replay ignored Responses message completion events through the legacy appender', () => {
+    const progress = vi.fn();
+    const collector = createStreamingReplyCollector('fallback-model', progress);
+    for (const event of [
+      { type: 'response.output_text.delta', delta: '一次就好。' },
+      { type: 'response.output_item.done', item: { type: 'message', content: [{ type: 'output_text', text: '一次就好。' }] } },
+      { type: 'response.completed', response: { output: [] } }
+    ]) collector.pushTextChunk(`data: ${JSON.stringify(event)}\n\n`, true);
+    expect(collector.finish().content).toBe('一次就好。');
+    expect(progress.mock.calls.some(([reply]) => reply.content.includes('一次就好。一次就好。'))).toBe(false);
+  });
+
+  it('joins distinct completed message items once even when output_text repeats the aggregate', () => {
+    const collector = createStreamingReplyCollector('fallback-model');
+    collector.pushTextChunk(`data: ${JSON.stringify({ type: 'response.completed', response: {
+      output_text: '先说明。最终回答。', output: [
+        { type: 'message', content: [{ type: 'output_text', text: '先说明。' }] },
+        { type: 'message', content: [{ type: 'output_text', text: '最终回答。' }] }
+      ]
+    } })}\n\n`, true);
+    expect(collector.finish().content).toBe('先说明。最终回答。');
   });
 
   it('does not prepend {} when responses tool streaming starts from an empty object', () => {
