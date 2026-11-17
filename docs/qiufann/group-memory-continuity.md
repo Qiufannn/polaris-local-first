@@ -22,6 +22,16 @@
 
 ## 手机验收（待修正版安装）
 
+第 29 版 [signed ZIP 下载](https://github.com/Qiufannn/polaris-local-first/actions/runs/44068698581/artifacts/14322150844)。下载 ZIP 后解压 `polaris.apk`，以同签名覆盖安装现有个人版。沿用秋凡已经创建的角色、供应商和群。
+
+源码 `c55eb06dbf9f308741c170192c43f4ae2c3966ee`；[CI #29](https://github.com/Qiufannn/polaris-local-first/actions/runs/44068698581) 四个作业均成功。本地与 CI 检查通过，完整测试为 506 个文件 / 3241 项；独立下载 unsigned artifact 核对原生 JUnit XML 为 116 项、0 failures / errors / skipped。
+
+- Signed ZIP SHA256：`a1e9eead5b8eb10f8ce7696681a46f2172023fac46a6f0964e317ac1f19d6571`，与 GitHub digest 一致。
+- APK SHA256：`ff83d882ccfe8a3414072616495a35d072fa4b3388267398875653a7aa06affc`，16,363,769 bytes，同包名 `com.alyssa.polaris`，versionCode 29。
+- 独立 apksigner 验证通过，个人证书固定值 `f703307d2ca9936df2bc928f03f3e49f9793c77d25ce24079e8baed75d80e3a5` 与第 28 版相同，v3 签名。Signed / unsigned 全部 payload 条目字节一致，只有三个签名元数据附加项。
+- 与第 28 版比较，101 张内置表情、原小屋请求/下载桥及原生 DEX 字节一致；新群目录、按需读回和流解析改动确实出现在 APK 的 Web 包中。
+- 这是构建与验包证据；第 29 版手机回复不重复、群聊实际读回仍待秋凡反馈。此回执后续提交仅改文档并跳过 CI，APK 的已验证源码仍是上述 `c55eb06`。
+
 1. 使用原有晏昼作为群成员，并保持群「记忆召回」及晏昼跨对话召回开启。
 2. 群里与小猫、小狗约定一个新玩具名字，然后回晏昼单聊询问群里的这个约定。核对回答的事实与发言者。
 3. 单聊补充一个新约定，返回群中点名晏昼询问；核对可以接上。
